@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🦠 Microfauna Sales Dashboard</h1>
+        
+        <!-- Statistics Grid -->
+        <div class="card-grid">
+            <div class="stat-card">
+                <h2>Total Revenue</h2>
+                <p class="value">₱{{ "%.2f"|format(revenue) }}</p>
+            </div>
+            <div class="stat-card">
+                <h2>Total Transactions</h2>
+                <p class="value">{{ transactions }}</p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="actions">
+            <a class="btn" href="{{ url_for('add_sale') }}">➕ Add Sale</a>
+            <a class="btn btn-secondary" href="{{ url_for('view_sales') }}">📊 View All Sales</a>
+            <a class="btn btn-secondary" href="{{ url_for('manage_items') }}">🛠️ Manage Items</a>
+        </div>
+
+        <!-- Recent Sales -->
+        {% if recent_sales %}
+        <div class="card">
+            <h2>Recent Sales</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in recent_sales %}
+                    <tr>
+                        <td>{{ sale['customer_name'] }}</td>
+                        <td>{{ sale['date'] }}</td>
+                        <td>₱{{ "%.2f"|format(sale['total']) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Top Selling Items -->
+        {% if top_items %}
+        <div class="card">
+            <h2>Top Selling Items</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity Sold</th>
+                        <th>Total Sales</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_items %}
+                    <tr>
+                        <td>{{ item['item_name'] }}</td>
+                        <td>{{ item['total_qty'] }}</td>
+                        <td>₱{{ "%.2f"|format(item['total_sales']) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

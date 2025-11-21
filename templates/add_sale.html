@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Sale - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>➕ Add New Sale</h1>
+        
+        {% if error %}
+        <div class="alert alert-error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" id="saleForm">
+            <label for="customer_name">Customer Name *</label>
+            <input type="text" id="customer_name" name="customer_name" required placeholder="Enter customer name">
+            
+            <label for="date">Sale Date *</label>
+            <input type="date" id="date" name="date" value="{{ today }}" required>
+            
+            <h3>Select Items</h3>
+            
+            {% if items %}
+                {% for item in items %}
+                <div class="item-row">
+                    <div>
+                        <label>{{ item['name'] }}</label>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
+                            ₱{{ "%.2f"|format(item['price']) }} per unit
+                        </p>
+                    </div>
+                    <div>
+                        <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                        <input type="number" 
+                               name="quantity" 
+                               min="0" 
+                               value="0" 
+                               placeholder="Qty"
+                               class="quantity-input"
+                               data-price="{{ item['price'] }}">
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-error">
+                    No items available. Please add items first in <a href="{{ url_for('manage_items') }}">Manage Items</a>.
+                </div>
+            {% endif %}
+            
+            <label for="notes">Notes (Optional)</label>
+            <textarea id="notes" name="notes" placeholder="Add any additional notes about this sale..."></textarea>
+            
+            <div class="card" style="margin-top: 20px;">
+                <h2>Order Summary</h2>
+                <div id="orderSummary">
+                    <p style="color: var(--text-secondary);">Add items to see summary</p>
+                </div>
+                <h3 style="margin-top: 15px;">Total: <span id="totalAmount">₱0.00</span></h3>
+            </div>
+            
+            <button class="btn" type="submit">💾 Save Sale</button>
+            <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+        </form>
+    </div>
+
+    <script>
+        // Calculate total dynamically
+        const quantityInputs = document.querySelectorAll('.quantity-input');
+        const totalAmountEl = document.getElementById('totalAmount');
+        const orderSummaryEl = document.getElementById('orderSummary');
+
+        function updateTotal() {
+            let total = 0;
+            let summaryHTML = '';
+            let itemCount = 0;
+
+            quantityInputs.forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                const price = parseFloat(input.dataset.price);
+                const subtotal = quantity * price;
+
+                if (quantity > 0) {
+                    const itemName = input.closest('.item-row').querySelector('label').textContent;
+                    total += subtotal;
+                    itemCount++;
+                    summaryHTML += `<p>${itemName} × ${quantity} = ₱${subtotal.toFixed(2)}</p>`;
+                }
+            });
+
+            if (itemCount === 0) {
+                orderSummaryEl.innerHTML = '<p style="color: var(--text-secondary);">Add items to see summary</p>';
+            } else {
+                orderSummaryEl.innerHTML = summaryHTML;
+            }
+
+            totalAmountEl.textContent = `₱${total.toFixed(2)}`;
+        }
+
+        quantityInputs.forEach(input => {
+            input.addEventListener('input', updateTotal);
+        });
+
+        // Form validation
+        document.getElementById('saleForm').addEventListener('submit', function(e) {
+            let hasItems = false;
+            quantityInputs.forEach(input => {
+                if (parseInt(input.value) > 0) {
+                    hasItems = true;
+                }
+            });
+
+            if (!hasItems) {
+                e.preventDefault();
+                alert('Please add at least one item to the sale.');
+            }
+        });
+    </script>
+</body>
+</html>

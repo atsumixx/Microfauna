@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Sales - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Sales Records</h1>
+
+        <form method="GET" action="{{ url_for('view_sales') }}">
+            <input type="text" name="search" placeholder="Search by customer or item" value="{{ search }}">
+            <button type="submit">Search</button>
+        </form>
+
+        {% if sales %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Total (₱)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                        <tr>
+                            <td>{{ sale['id'] }}</td>
+                            <td>{{ sale['date'] }}</td>
+                            <td>{{ sale['customer'] }}</td>
+                            <td>
+                                <ul>
+                                    {% for item in sale['items'] %}
+                                        <li>{{ item['name'] }} x{{ item['quantity'] }} - ₱{{ "%.2f"|format(item['subtotal']) }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                            <td>₱{{ "%.2f"|format(sale['total']) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No sales found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
