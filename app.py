@@ -44,6 +44,16 @@ def init_db():
                     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
                 )''')
     
+    c.execute('''CREATE TABLE IF NOT EXISTS expenses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    description TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    category TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    notes TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )''')
+    
     # Insert default items only if table is empty
     c.execute("SELECT COUNT(*) FROM items")
     if c.fetchone()[0] == 0:
@@ -75,12 +85,26 @@ def dashboard():
     c.execute("SELECT COUNT(*) FROM sales")
     total_transactions = c.fetchone()[0]
     
+    # Get total expenses
+    c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses")
+    total_expenses = c.fetchone()[0]
+    
+    # Calculate net profit
+    net_profit = total_revenue - total_expenses
+    
     # Get recent sales (last 5)
     c.execute("""SELECT id, customer_name, date, total 
                  FROM sales 
                  ORDER BY date DESC, id DESC 
                  LIMIT 5""")
     recent_sales = c.fetchall()
+    
+    # Get recent expenses (last 5)
+    c.execute("""SELECT id, description, amount, category, date 
+                 FROM expenses 
+                 ORDER BY date DESC, id DESC 
+                 LIMIT 5""")
+    recent_expenses = c.fetchall()
     
     # Get top selling items
     c.execute("""SELECT item_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales
@@ -90,13 +114,25 @@ def dashboard():
                  LIMIT 5""")
     top_items = c.fetchall()
     
+    # Get expense breakdown by category
+    c.execute("""SELECT category, SUM(amount) as total
+                 FROM expenses
+                 GROUP BY category
+                 ORDER BY total DESC
+                 LIMIT 5""")
+    expense_breakdown = c.fetchall()
+    
     conn.close()
     
     return render_template('dashboard.html', 
                          revenue=total_revenue,
                          transactions=total_transactions,
+                         expenses=total_expenses,
+                         net_profit=net_profit,
                          recent_sales=recent_sales,
-                         top_items=top_items)
+                         recent_expenses=recent_expenses,
+                         top_items=top_items,
+                         expense_breakdown=expense_breakdown)
 
 @app.route('/add-sale', methods=['GET', 'POST'])
 def add_sale():
@@ -392,6 +428,112 @@ def get_active_items():
     items = [dict(row) for row in c.fetchall()]
     conn.close()
     return items
+
+# --- EXPENSES ROUTES ---
+@app.route('/expenses')
+def view_expenses():
+    """View all expenses"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Get filter parameters
+    search = request.args.get('search', '')
+    
+    # Build query
+    query = """SELECT id, description, amount, category, date, notes 
+               FROM expenses 
+               WHERE description LIKE ? OR category LIKE ?
+               ORDER BY date DESC, id DESC"""
+    
+    c.execute(query, (f'%{search}%', f'%{search}%'))
+    expenses = c.fetchall()
+    
+    # Calculate total expenses
+    c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses")
+    total_expenses = c.fetchone()[0]
+    
+    conn.close()
+    return render_template('view_expenses.html', 
+                         expenses=[dict(exp) for exp in expenses], 
+                         search=search,
+                         total_expenses=total_expenses)
+
+@app.route('/expenses/add', methods=['GET', 'POST'])
+def add_expense():
+    """Add new expense"""
+    if request.method == 'POST':
+        try:
+            description = request.form['description'].strip()
+            amount = float(request.form['amount'])
+            category = request.form['category'].strip()
+            date = request.form['date'] or datetime.now().strftime('%Y-%m-%d')
+            notes = request.form.get('notes', '').strip()
+            
+            conn = get_db()
+            c = conn.cursor()
+            c.execute("""INSERT INTO expenses (description, amount, category, date, notes) 
+                        VALUES (?, ?, ?, ?, ?)""", 
+                     (description, amount, category, date, notes))
+            conn.commit()
+            conn.close()
+            
+            return redirect(url_for('view_expenses'))
+        except Exception as e:
+            return render_template('add_expense.html', 
+                                 error=f"Error adding expense: {str(e)}",
+                                 today=datetime.now().strftime('%Y-%m-%d'))
+    
+    return render_template('add_expense.html', 
+                         today=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/expenses/edit/<int:expense_id>', methods=['GET', 'POST'])
+def edit_expense(expense_id):
+    """Edit an expense"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("SELECT * FROM expenses WHERE id=?", (expense_id,))
+    expense = c.fetchone()
+    
+    if not expense:
+        conn.close()
+        return "Expense not found", 404
+    
+    if request.method == 'POST':
+        try:
+            description = request.form['description'].strip()
+            amount = float(request.form['amount'])
+            category = request.form['category'].strip()
+            date = request.form['date']
+            notes = request.form.get('notes', '').strip()
+            
+            c.execute("""UPDATE expenses 
+                        SET description=?, amount=?, category=?, date=?, notes=? 
+                        WHERE id=?""",
+                     (description, amount, category, date, notes, expense_id))
+            conn.commit()
+            conn.close()
+            
+            return redirect(url_for('view_expenses'))
+        except Exception as e:
+            conn.close()
+            return render_template('edit_expense.html', 
+                                 expense=expense,
+                                 error=f"Error updating expense: {str(e)}")
+    
+    conn.close()
+    return render_template('edit_expense.html', expense=expense)
+
+@app.route('/expenses/delete/<int:expense_id>', methods=['POST'])
+def delete_expense(expense_id):
+    """Delete an expense"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM expenses WHERE id=?", (expense_id,))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('view_expenses'))
 
 if __name__ == '__main__':
     app.run(debug=True)
