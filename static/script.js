@@ -59,3 +59,17 @@ async function loadSales() {
 }
 
 loadSales();
+
+function toggleDropdown(id) {
+    const dropdown = document.getElementById(id);
+    dropdown.classList.toggle('show');
+}
+
+// Close only if clicked outside dropdown or button
+window.onclick = function(event) {
+    if (!event.target.closest('.actions-menu')) {
+        document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+            dropdown.classList.remove('show');
+        });
+    }
+}
