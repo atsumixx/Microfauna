@@ -382,12 +382,13 @@ tr:hover {
     position: absolute;
     right: 0;
     background-color: var(--bg-card);
-    min-width: 140px;
+    min-width: 100px;
     box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.5);
     border-radius: 8px;
     border: 1px solid var(--border-color);
     overflow: hidden;
     z-index: 999999999 !important;
+    padding: 4px 0;
 }
 
 .dropdown-content.show {
@@ -397,10 +398,10 @@ tr:hover {
 .dropdown-content a,
 .dropdown-content button {
     color: var(--text-primary);
-    padding: 12px 16px;
+    padding: 10px 16px;
     text-decoration: none;
     display: block;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     border: none;
     background: none;
     cursor: pointer;
@@ -408,6 +409,9 @@ tr:hover {
     width: 100%;
     text-align: left;
     border-radius: 0;
+    font-weight: 400;
+    margin: 0;
+    box-sizing: border-box;
 }
 
 .dropdown-content a:hover,
@@ -415,9 +419,16 @@ tr:hover {
     background-color: var(--bg-secondary);
 }
 
+.dropdown-content form {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+}
+
 .dropdown-content button.delete {
     color: var(--accent-danger);
-    font-weight: 500;
+    font-weight: 400;
 }
 
 /* Alerts */
