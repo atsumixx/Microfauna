@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Sale - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Edit Sale #{{ sale.id }}</h1>
+
+        {% if error %}
+            <div class="alert alert-error">
+                <strong>Error:</strong> {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('edit_sale', sale_id=sale.id) }}">
+            <div class="form-group">
+                <label for="customer_name">Customer Name:</label>
+                <input type="text" id="customer_name" name="customer_name" value="{{ sale.customer }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="date">Date:</label>
+                <input type="date" id="date" name="date" value="{{ sale.date }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes:</label>
+                <textarea id="notes" name="notes" rows="3">{{ sale.notes or '' }}</textarea>
+            </div>
+
+            <h3>Items</h3>
+            <div id="items-container">
+                {% for item in sale.items %}
+                <div class="item-row">
+                    <select name="item_id" required>
+                        <option value="">Select Item</option>
+                        {% for available_item in items %}
+                            <option value="{{ available_item.id }}"
+                                data-price="{{ available_item.price }}"
+                                {% if available_item.name == item.name %}selected{% endif %}>
+                                {{ available_item.name }} - ₱{{ "%.2f"|format(available_item.price) }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="quantity" min="1" value="{{ item.quantity }}" placeholder="Quantity" required>
+                    <button type="button" onclick="removeItem(this)">Remove</button>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button type="button" class="btn btn-secondary" onclick="addItem()">Add Item</button>
+
+            <div class="form-actions">
+                <button type="submit" class="btn">Save Changes</button>
+                <a href="{{ url_for('view_sales') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // FIXED — always valid JS
+        const availableItems = JSON.parse(`{{ items_json | tojson }}`);
+
+        function addItem() {
+            const container = document.getElementById('items-container');
+            const itemRow = document.createElement('div');
+            itemRow.className = 'item-row';
+
+            let options = '<option value="">Select Item</option>';
+            availableItems.forEach(item => {
+                options += `<option value="${item.id}" data-price="${item.price}">
+                                ${item.name} - ₱${item.price.toFixed(2)}
+                            </option>`;
+            });
+
+            itemRow.innerHTML = `
+                <select name="item_id" required>
+                    ${options}
+                </select>
+                <input type="number" name="quantity" min="1" value="1" placeholder="Quantity" required>
+                <button type="button" onclick="removeItem(this)">Remove</button>
+            `;
+
+            container.appendChild(itemRow);
+        }
+
+        function removeItem(button) {
+            const itemRow = button.parentElement;
+            itemRow.remove();
+        }
+    </script>
+</body>
+</html>
