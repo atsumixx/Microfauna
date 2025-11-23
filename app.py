@@ -214,6 +214,77 @@ def delete_sale(sale_id):
     
     return redirect(url_for('view_sales'))
 
+# --- EDIT SALE ROUTE ---
+@app.route('/sales/edit/<int:sale_id>', methods=['GET', 'POST'])
+def edit_sale(sale_id):
+    """Edit a sale"""
+    conn = get_db()
+    c = conn.cursor()
+
+    # Fetch sale
+    c.execute("SELECT * FROM sales WHERE id=?", (sale_id,))
+    sale = c.fetchone()
+    if not sale:
+        conn.close()
+        return "Sale not found", 404
+
+    # Fetch sale items
+    c.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale_id,))
+    sale_items = [dict(row) for row in c.fetchall()]
+
+    if request.method == 'POST':
+        try:
+            # Update sale info
+            customer = request.form['customer_name'].strip()
+            date = request.form['date']
+            notes = request.form.get('notes', '').strip()
+            
+            item_ids = request.form.getlist('item_id')
+            quantities = request.form.getlist('quantity')
+
+            total = 0
+            updated_items = []
+
+            for item_id, qty in zip(item_ids, quantities):
+                qty = int(qty)
+                if qty > 0:
+                    c.execute("SELECT name, price FROM items WHERE id=? AND active=1", (item_id,))
+                    item = c.fetchone()
+                    if item:
+                        subtotal = item['price'] * qty
+                        total += subtotal
+                        updated_items.append((item['name'], qty, item['price'], subtotal))
+
+            if updated_items:
+                # Update sale
+                c.execute("UPDATE sales SET customer_name=?, date=?, total=?, notes=? WHERE id=?",
+                          (customer, date, total, notes, sale_id))
+                
+                # Delete old sale items
+                c.execute("DELETE FROM sale_items WHERE sale_id=?", (sale_id,))
+                
+                # Insert updated items
+                c.executemany(
+                    "INSERT INTO sale_items (sale_id, item_name, quantity, price, subtotal) VALUES (?, ?, ?, ?, ?)",
+                    [(sale_id, item[0], item[1], item[2], item[3]) for item in updated_items]
+                )
+
+                conn.commit()
+                conn.close()
+                return redirect(url_for('view_sales'))
+            else:
+                conn.close()
+                return render_template('edit_sale.html', sale=sale, sale_items=sale_items, items=get_active_items(),
+                                       error="Please add at least one item.")
+        except Exception as e:
+            conn.close()
+            return render_template('edit_sale.html', sale=sale, sale_items=sale_items, items=get_active_items(),
+                                   error=f"Error updating sale: {str(e)}")
+
+    conn.close()
+    return render_template('edit_sale.html', sale=sale, sale_items=sale_items, items=get_active_items())
+
+# --- ITEMS ROUTES ---
 @app.route('/items')
 def manage_items():
     """Manage items (view, add, edit)"""
@@ -267,6 +338,31 @@ def toggle_item(item_id):
     c.execute("UPDATE items SET active = 1 - active WHERE id=?", (item_id,))
     conn.commit()
     conn.close()
+    
+    return redirect(url_for('manage_items'))
+
+@app.route('/items/delete/<int:item_id>', methods=['POST'])
+def delete_item(item_id):
+    """Delete item permanently"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Check if item is used in any sales
+        c.execute("SELECT COUNT(*) FROM sale_items WHERE item_name = (SELECT name FROM items WHERE id=?)", (item_id,))
+        count = c.fetchone()[0]
+        
+        if count > 0:
+            # Don't delete, just deactivate
+            c.execute("UPDATE items SET active = 0 WHERE id=?", (item_id,))
+        else:
+            # Safe to delete
+            c.execute("DELETE FROM items WHERE id=?", (item_id,))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error deleting item: {e}")
     
     return redirect(url_for('manage_items'))
 
