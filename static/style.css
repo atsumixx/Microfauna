@@ -100,6 +100,24 @@ h3 {
     transform: scale(1.05);
 }
 
+.stat-card.net-profit-positive {
+    border-color: var(--accent-primary);
+}
+
+.stat-card.net-profit-positive:hover {
+    border-color: var(--accent-primary);
+    transform: scale(1.05);
+}
+
+.stat-card.net-profit-negative {
+    border-color: var(--accent-danger);
+}
+
+.stat-card.net-profit-negative:hover {
+    border-color: var(--accent-danger);
+    transform: scale(1.05);
+}
+
 .stat-card h2 {
     font-size: 1rem;
     color: var(--text-secondary);
@@ -328,8 +346,9 @@ table {
     width: 100%;
     background: var(--bg-card);
     border-radius: 15px;
-    overflow: hidden;
-    border-collapse: collapse;
+    overflow: visible;
+    border-collapse: separate;
+    border-spacing: 0;
     margin: 20px 0;
 }
 
@@ -351,15 +370,34 @@ th {
     letter-spacing: 0.5px;
 }
 
+tbody {
+    position: relative;
+}
+
+tr {
+    position: relative;
+    background: var(--bg-card);
+}
+
 tr:hover {
     background: var(--bg-secondary);
+}
+
+/* Fix z-index stacking for rows with open dropdowns */
+tr.dropdown-active {
+    z-index: 1000 !important;
+    position: relative;
+}
+
+tr.dropdown-active td {
+    position: relative;
+    z-index: 1000;
 }
 
 /* Actions Menu - Dropdown */
 .actions-menu {
     position: relative;
     display: inline-block;
-    z-index: 999999;
 }
 
 .actions-btn {
@@ -371,6 +409,8 @@ tr:hover {
     color: var(--text-primary);
     border-radius: 4px;
     transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
 }
 
 .actions-btn:hover {
@@ -381,14 +421,16 @@ tr:hover {
     display: none;
     position: absolute;
     right: 0;
+    top: 100%;
     background-color: var(--bg-card);
     min-width: 100px;
     box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.5);
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    overflow: hidden;
-    z-index: 999999999 !important;
+    overflow: visible;
+    z-index: 10000 !important;
     padding: 4px 0;
+    margin-top: 5px;
 }
 
 .dropdown-content.show {
