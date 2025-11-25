@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Expense - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Edit Expense #{{ expense.id }}</h1>
+        
+        {% if error %}
+        <div class="alert alert-error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST">
+            <label for="description">Description *</label>
+            <input type="text" id="description" name="description" value="{{ expense.description }}" required>
+            
+            <label for="amount">Amount (₱) *</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" value="{{ expense.amount }}" required>
+            
+            <label for="category">Category *</label>
+            <select id="category" name="category" required>
+                <option value="Supplies" {% if expense.category == 'Supplies' %}selected{% endif %}>Supplies</option>
+                <option value="Shipping" {% if expense.category == 'Shipping' %}selected{% endif %}>Shipping</option>
+                <option value="Equipment" {% if expense.category == 'Equipment' %}selected{% endif %}>Equipment</option>
+                <option value="Marketing" {% if expense.category == 'Marketing' %}selected{% endif %}>Marketing</option>
+                <option value="Utilities" {% if expense.category == 'Utilities' %}selected{% endif %}>Utilities</option>
+                <option value="Maintenance" {% if expense.category == 'Maintenance' %}selected{% endif %}>Maintenance</option>
+                <option value="Other" {% if expense.category == 'Other' %}selected{% endif %}>Other</option>
+            </select>
+            
+            <label for="date">Date *</label>
+            <input type="date" id="date" name="date" value="{{ expense.date }}" required>
+            
+            <label for="notes">Notes (Optional)</label>
+            <textarea id="notes" name="notes">{{ expense.notes or '' }}</textarea>
+            
+            <button class="btn" type="submit">Save Changes</button>
+            <a class="btn btn-secondary" href="{{ url_for('view_expenses') }}">Cancel</a>
+        </form>
+    </div>
+</body>
+</html>
