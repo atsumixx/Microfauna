@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -251,3 +252,218 @@
     </script>
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Microfauna Sales Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🦠 Microfauna Sales Dashboard</h1>
+        
+        <!-- Financial Statistics Grid -->
+        <div class="card-grid">
+            <div class="stat-card">
+                <h2>Total Revenue</h2>
+                <p class="value">₱{{ "%.2f"|format(revenue) }}</p>
+            </div>
+            <div class="stat-card">
+                <h2>Total Expenses</h2>
+                <p class="value" style="color: var(--accent-danger);">₱{{ "%.2f"|format(expenses) }}</p>
+            </div>
+            {% if net_profit >= 0 %}
+            <div class="stat-card net-profit-positive">
+                <h2>Net Profit</h2>
+                <p class="value">₱{{ "%.2f"|format(net_profit) }}</p>
+            </div>
+            {% else %}
+            <div class="stat-card net-profit-negative">
+                <h2>Net Profit</h2>
+                <p class="value" style="color: var(--accent-danger); background: none;">₱{{ "%.2f"|format(net_profit) }}</p>
+            </div>
+            {% endif %}
+            <div class="stat-card">
+                <h2>Total Transactions</h2>
+                <p class="value">{{ transactions }}</p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="actions">
+            <a class="btn" href="{{ url_for('add_sale') }}">➕ Add Sale</a>
+            <a class="btn btn-danger" href="{{ url_for('add_expense') }}">💸 Add Expense</a>
+            <a class="btn btn-secondary" href="{{ url_for('view_sales') }}">View All Sales</a>
+            <a class="btn btn-secondary" href="{{ url_for('view_expenses') }}">View All Expenses</a>
+            <a class="btn btn-secondary" href="{{ url_for('manage_items') }}">Manage Items</a>
+        </div>
+
+        <!-- Recent Sales -->
+        {% if recent_sales %}
+        <div class="card">
+            <h2>Recent Sales</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in recent_sales %}
+                    <tr>
+                        <td>{{ sale.customer_name }}</td>
+                        <td>{{ sale.date }}</td>
+                        <td style="color: var(--accent-primary);">₱{{ "%.2f"|format(sale.total) }}</td>
+                        <td>
+                            <div class="actions-menu">
+                                <button class="actions-btn" onclick="toggleDropdown('recent-{{ sale.id }}')">⋮</button>
+                                <div id="dropdown-recent-{{ sale.id }}" class="dropdown-content">
+                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
+                                    <form method="POST" action="{{ url_for('delete_sale', sale_id=sale.id) }}" onsubmit="return confirm('Are you sure you want to delete this sale?');">
+                                        <button type="submit" class="delete">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Recent Expenses -->
+        {% if recent_expenses %}
+        <div class="card">
+            <h2>Recent Expenses</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in recent_expenses %}
+                    <tr>
+                        <td>{{ expense.description }}</td>
+                        <td>
+                            <span style="background: var(--bg-secondary); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                                {{ expense.category }}
+                            </span>
+                        </td>
+                        <td>{{ expense.date }}</td>
+                        <td style="color: var(--accent-danger);">₱{{ "%.2f"|format(expense.amount) }}</td>
+                        <td>
+                            <div class="actions-menu">
+                                <button class="actions-btn" onclick="toggleDropdown('expense-{{ expense.id }}')">⋮</button>
+                                <div id="dropdown-expense-{{ expense.id }}" class="dropdown-content">
+                                    <a href="{{ url_for('edit_expense', expense_id=expense.id) }}">Edit</a>
+                                    <form method="POST" action="{{ url_for('delete_expense', expense_id=expense.id) }}" onsubmit="return confirm('Are you sure you want to delete this expense?');">
+                                        <button type="submit" class="delete">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Two Column Layout for Analytics -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+            <!-- Top Selling Items -->
+            {% if top_items %}
+            <div class="card">
+                <h2>Top Selling Items</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qty Sold</th>
+                            <th>Total Sales</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_items %}
+                        <tr>
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ item.total_qty }}</td>
+                            <td>₱{{ "%.2f"|format(item.total_sales) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Expense Breakdown -->
+            {% if expense_breakdown %}
+            <div class="card">
+                <h2>Expense Breakdown</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category in expense_breakdown %}
+                        <tr>
+                            <td>
+                                <span style="background: var(--bg-secondary); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                                    {{ category.category }}
+                                </span>
+                            </td>
+                            <td style="color: var(--accent-danger);">₱{{ "%.2f"|format(category.total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown(dropdownId) {
+            const fullId = 'dropdown-' + dropdownId;
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
+                if (dropdown.id !== fullId) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Toggle the clicked dropdown
+            const clickedDropdown = document.getElementById(fullId);
+            if (clickedDropdown) {
+                clickedDropdown.classList.toggle('show');
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.actions-btn')) {
+                document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
+                    dropdown.classList.remove('show');
+                });
+            }
+        }
+    </script>
+</body>
+</html>
+>>>>>>> 5d8cc8a99032684013996334acea67445b66ae37
