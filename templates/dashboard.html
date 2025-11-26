@@ -5,10 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🦠 Microfauna Sales Dashboard</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>🦠 Microfauna Sales Dashboard</h1>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                    <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                        <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
+                    </svg>
+                </button>
+                <button class="chart-icon-btn" onclick="openChartModal()" title="View Analytics">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 3V21H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M7 16L12 11L15 14L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="7" cy="16" r="2" fill="currentColor"/>
+                        <circle cx="12" cy="11" r="2" fill="currentColor"/>
+                        <circle cx="15" cy="14" r="2" fill="currentColor"/>
+                        <circle cx="21" cy="8" r="2" fill="currentColor"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
         
         <!-- Financial Statistics Grid -->
         <div class="card-grid">
@@ -182,26 +214,264 @@
         </div>
     </div>
 
+    <!-- Chart Modal -->
+    <div id="chartModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Sales Analytics</h2>
+                <span class="close" onclick="closeChartModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="chart-tabs">
+                    <button class="tab-btn active" onclick="showChart('monthly')">Monthly Trends</button>
+                    <button class="tab-btn" onclick="showChart('items')">Item Breakdown</button>
+                    <button class="tab-btn" onclick="showChart('expenses')">Expense Categories</button>
+                    <button class="tab-btn" onclick="showChart('comparison')">Revenue vs Expenses</button>
+                </div>
+                
+                <div id="chart-monthly" class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+                
+                <div id="chart-items" class="chart-container" style="display: none;">
+                    <canvas id="itemsChart"></canvas>
+                </div>
+                
+                <div id="chart-expenses" class="chart-container" style="display: none;">
+                    <canvas id="expensesChart"></canvas>
+                </div>
+                
+                <div id="chart-comparison" class="chart-container" style="display: none;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let charts = {};
+
+        function openChartModal() {
+            document.getElementById('chartModal').style.display = 'block';
+            loadAllCharts();
+        }
+
+        function closeChartModal() {
+            document.getElementById('chartModal').style.display = 'none';
+        }
+
+        function showChart(chartType) {
+            // Hide all charts
+            document.querySelectorAll('.chart-container').forEach(c => c.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            // Show selected chart
+            document.getElementById(`chart-${chartType}`).style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        async function loadAllCharts() {
+            await loadMonthlyChart();
+            await loadItemsChart();
+            await loadExpensesChart();
+            await loadComparisonChart();
+        }
+
+        async function loadMonthlyChart() {
+            const response = await fetch('/api/charts/monthly-sales');
+            const data = await response.json();
+            
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            
+            if (charts.monthly) charts.monthly.destroy();
+            
+            charts.monthly = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.month),
+                    datasets: [{
+                        label: 'Monthly Revenue',
+                        data: data.map(d => d.revenue),
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        },
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadItemsChart() {
+            const response = await fetch('/api/charts/item-sales');
+            const data = await response.json();
+            
+            const ctx = document.getElementById('itemsChart').getContext('2d');
+            
+            if (charts.items) charts.items.destroy();
+            
+            const colors = ['#00ff88', '#00ccff', '#ffaa00', '#ff4444', '#aa00ff'];
+            
+            charts.items = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.item_name),
+                    datasets: [{
+                        data: data.map(d => d.total_sales),
+                        backgroundColor: colors,
+                        borderColor: '#1a1a1a',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { 
+                                color: '#ffffff',
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadExpensesChart() {
+            const response = await fetch('/api/charts/expense-breakdown');
+            const data = await response.json();
+            
+            const ctx = document.getElementById('expensesChart').getContext('2d');
+            
+            if (charts.expenses) charts.expenses.destroy();
+            
+            charts.expenses = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.category),
+                    datasets: [{
+                        label: 'Expenses by Category',
+                        data: data.map(d => d.total),
+                        backgroundColor: '#ff4444',
+                        borderColor: '#ff6666',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        },
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadComparisonChart() {
+            const response = await fetch('/api/charts/monthly-comparison');
+            const data = await response.json();
+            
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            
+            if (charts.comparison) charts.comparison.destroy();
+            
+            charts.comparison = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Revenue',
+                            data: data.map(d => d.revenue),
+                            backgroundColor: '#00ff88',
+                            borderColor: '#00ff88',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Expenses',
+                            data: data.map(d => d.expenses),
+                            backgroundColor: '#ff4444',
+                            borderColor: '#ff4444',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        },
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#2a2a2a' }
+                        }
+                    }
+                }
+            });
+        }
+
         function toggleDropdown(dropdownId) {
             const fullId = 'dropdown-' + dropdownId;
             
-            // Close all other dropdowns
             document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
                 if (dropdown.id !== fullId) {
                     dropdown.classList.remove('show');
                 }
             });
             
-            // Toggle the clicked dropdown
             const clickedDropdown = document.getElementById(fullId);
             if (clickedDropdown) {
                 clickedDropdown.classList.toggle('show');
             }
         }
 
-        // Close dropdowns when clicking outside
         window.onclick = function(event) {
+            if (event.target == document.getElementById('chartModal')) {
+                closeChartModal();
+            }
             if (!event.target.matches('.actions-btn')) {
                 document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
                     dropdown.classList.remove('show');

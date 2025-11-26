@@ -137,6 +137,102 @@ def dashboard():
                          top_items=top_items,
                          expense_breakdown=expense_breakdown)
 
+# --- NEW API ENDPOINTS FOR CHARTS ---
+@app.route('/api/charts/monthly-sales')
+def api_monthly_sales():
+    """Get monthly sales data for chart"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("""SELECT strftime('%Y-%m', date) as month, 
+                        SUM(total) as revenue,
+                        COUNT(*) as transactions
+                 FROM sales
+                 GROUP BY month
+                 ORDER BY month DESC
+                 LIMIT 12""")
+    
+    data = [dict(row) for row in c.fetchall()]
+    data.reverse()  # Show oldest to newest
+    conn.close()
+    
+    return jsonify(data)
+
+@app.route('/api/charts/item-sales')
+def api_item_sales():
+    """Get item sales breakdown"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("""SELECT si.item_name, 
+                        SUM(si.quantity) as total_qty,
+                        SUM(si.subtotal) as total_sales
+                 FROM sale_items si
+                 GROUP BY si.item_name
+                 ORDER BY total_sales DESC""")
+    
+    data = [dict(row) for row in c.fetchall()]
+    conn.close()
+    
+    return jsonify(data)
+
+@app.route('/api/charts/expense-breakdown')
+def api_expense_breakdown():
+    """Get expense breakdown by category"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("""SELECT category, SUM(amount) as total
+                 FROM expenses
+                 GROUP BY category
+                 ORDER BY total DESC""")
+    
+    data = [dict(row) for row in c.fetchall()]
+    conn.close()
+    
+    return jsonify(data)
+
+@app.route('/api/charts/monthly-comparison')
+def api_monthly_comparison():
+    """Get monthly revenue vs expenses comparison"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Get monthly sales
+    c.execute("""SELECT strftime('%Y-%m', date) as month, SUM(total) as amount, 'Revenue' as type
+                 FROM sales
+                 GROUP BY month""")
+    sales_data = [dict(row) for row in c.fetchall()]
+    
+    # Get monthly expenses
+    c.execute("""SELECT strftime('%Y-%m', date) as month, SUM(amount) as amount, 'Expenses' as type
+                 FROM expenses
+                 GROUP BY month""")
+    expense_data = [dict(row) for row in c.fetchall()]
+    
+    # Combine and organize data
+    all_months = set()
+    for row in sales_data + expense_data:
+        all_months.add(row['month'])
+    
+    result = []
+    for month in sorted(all_months):
+        revenue = next((r['amount'] for r in sales_data if r['month'] == month), 0)
+        expenses = next((e['amount'] for e in expense_data if e['month'] == month), 0)
+        result.append({
+            'month': month,
+            'revenue': revenue,
+            'expenses': expenses,
+            'profit': revenue - expenses
+        })
+    
+    result.sort(key=lambda x: x['month'])
+    result = result[-12:]  # Last 12 months
+    
+    conn.close()
+    return jsonify(result)
+
+# Keep all existing routes from original app.py
 @app.route('/add-sale', methods=['GET', 'POST'])
 def add_sale():
     """Add new sale"""
@@ -151,7 +247,6 @@ def add_sale():
             item_ids = request.form.getlist('item_id')
             quantities = request.form.getlist('quantity')
 
-            # Calculate total and prepare sale entries
             total = 0
             sale_entries = []
             
@@ -165,14 +260,11 @@ def add_sale():
                         total += subtotal
                         sale_entries.append((item['name'], qty, item['price'], subtotal))
 
-            # Only insert if there are items
             if sale_entries:
-                # Insert sale
                 c.execute("INSERT INTO sales (customer_name, date, total, notes) VALUES (?, ?, ?, ?)", 
                          (customer, date, total, notes))
                 sale_id = c.lastrowid
 
-                # Insert sale items
                 c.executemany(
                     "INSERT INTO sale_items (sale_id, item_name, quantity, price, subtotal) VALUES (?, ?, ?, ?, ?)",
                     [(sale_id, entry[0], entry[1], entry[2], entry[3]) for entry in sale_entries]
@@ -204,10 +296,8 @@ def view_sales():
     conn = get_db()
     c = conn.cursor()
     
-    # Get filter parameters
     search = request.args.get('search', '')
     
-    # Build query
     query = """SELECT id, customer_name, date, total, notes 
                FROM sales 
                WHERE customer_name LIKE ? 
@@ -216,7 +306,6 @@ def view_sales():
     c.execute(query, (f'%{search}%',))
     sales = c.fetchall()
 
-    # Get items for each sale
     expanded_sales = []
     for sale in sales:
         c.execute("""SELECT item_name as name, quantity, price, subtotal 
@@ -224,7 +313,6 @@ def view_sales():
                      WHERE sale_id=?""", (sale['id'],))
         items = c.fetchall()
         
-        # Flatten the structure to match template expectations
         expanded_sales.append({
             'id': sale['id'],
             'customer': sale['customer_name'],
@@ -243,9 +331,7 @@ def delete_sale(sale_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Delete sale items first
     c.execute("DELETE FROM sale_items WHERE sale_id=?", (sale_id,))
-    # Delete sale
     c.execute("DELETE FROM sales WHERE id=?", (sale_id,))
     
     conn.commit()
@@ -253,33 +339,26 @@ def delete_sale(sale_id):
     
     return redirect(url_for('view_sales'))
 
-# --- EDIT SALE ROUTE (FIXED) ---
 @app.route('/sales/edit/<int:sale_id>', methods=['GET', 'POST'])
 def edit_sale(sale_id):
     """Edit a sale"""
     conn = get_db()
     c = conn.cursor()
 
-    # Fetch sale
     c.execute("SELECT * FROM sales WHERE id=?", (sale_id,))
     sale = c.fetchone()
     if not sale:
         conn.close()
         return "Sale not found", 404
 
-    # Fetch sale items
     c.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale_id,))
     sale_items = [dict(row) for row in c.fetchall()]
     
-    # Get all items (active and inactive) for dropdown
     items = get_active_items()
-    
-    # Convert items to JSON for JavaScript - THIS WAS MISSING
     items_json = json.dumps(items)
 
     if request.method == 'POST':
         try:
-            # Update sale info
             customer = request.form['customer_name'].strip()
             date = request.form['date']
             notes = request.form.get('notes', '').strip()
@@ -301,14 +380,11 @@ def edit_sale(sale_id):
                         updated_items.append((item['name'], qty, item['price'], subtotal))
 
             if updated_items:
-                # Update sale
                 c.execute("UPDATE sales SET customer_name=?, date=?, total=?, notes=? WHERE id=?",
                           (customer, date, total, notes, sale_id))
                 
-                # Delete old sale items
                 c.execute("DELETE FROM sale_items WHERE sale_id=?", (sale_id,))
                 
-                # Insert updated items
                 c.executemany(
                     "INSERT INTO sale_items (sale_id, item_name, quantity, price, subtotal) VALUES (?, ?, ?, ?, ?)",
                     [(sale_id, item[0], item[1], item[2], item[3]) for item in updated_items]
@@ -335,17 +411,15 @@ def edit_sale(sale_id):
                                  error=f"Error updating sale: {str(e)}")
 
     conn.close()
-    # FIXED: Now passing items_json to template
     return render_template('edit_sale.html', 
                          sale=sale, 
                          sale_items=sale_items, 
                          items=items,
                          items_json=items_json)
 
-# --- ITEMS ROUTES ---
 @app.route('/items')
 def manage_items():
-    """Manage items (view, add, edit)"""
+    """Manage items"""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM items ORDER BY name")
@@ -406,15 +480,12 @@ def delete_item(item_id):
         conn = get_db()
         c = conn.cursor()
         
-        # Check if item is used in any sales
         c.execute("SELECT COUNT(*) FROM sale_items WHERE item_name = (SELECT name FROM items WHERE id=?)", (item_id,))
         count = c.fetchone()[0]
         
         if count > 0:
-            # Don't delete, just deactivate
             c.execute("UPDATE items SET active = 0 WHERE id=?", (item_id,))
         else:
-            # Safe to delete
             c.execute("DELETE FROM items WHERE id=?", (item_id,))
         
         conn.commit()
@@ -424,44 +495,14 @@ def delete_item(item_id):
     
     return redirect(url_for('manage_items'))
 
-@app.route('/api/stats')
-def api_stats():
-    """API endpoint for statistics"""
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Monthly revenue
-    c.execute("""SELECT strftime('%Y-%m', date) as month, SUM(total) as revenue
-                 FROM sales
-                 GROUP BY month
-                 ORDER BY month DESC
-                 LIMIT 12""")
-    monthly_revenue = [dict(row) for row in c.fetchall()]
-    
-    conn.close()
-    
-    return jsonify(monthly_revenue)
-
-def get_active_items():
-    """Helper function to get active items"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM items WHERE active=1 ORDER BY name")
-    items = [dict(row) for row in c.fetchall()]
-    conn.close()
-    return items
-
-# --- EXPENSES ROUTES ---
 @app.route('/expenses')
 def view_expenses():
     """View all expenses"""
     conn = get_db()
     c = conn.cursor()
     
-    # Get filter parameters
     search = request.args.get('search', '')
     
-    # Build query
     query = """SELECT id, description, amount, category, date, notes 
                FROM expenses 
                WHERE description LIKE ? OR category LIKE ?
@@ -470,7 +511,6 @@ def view_expenses():
     c.execute(query, (f'%{search}%', f'%{search}%'))
     expenses = c.fetchall()
     
-    # Calculate total expenses
     c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses")
     total_expenses = c.fetchone()[0]
     
@@ -574,29 +614,33 @@ def delete_item_sales(item_name):
     conn = get_db()
     c = conn.cursor()
     
-    # Get all sale_ids that contain this item
     c.execute("SELECT DISTINCT sale_id FROM sale_items WHERE item_name=?", (item_name,))
     sale_ids = [row[0] for row in c.fetchall()]
     
-    # Delete the sale_items for this item
     c.execute("DELETE FROM sale_items WHERE item_name=?", (item_name,))
     
-    # For each affected sale, recalculate the total
     for sale_id in sale_ids:
         c.execute("SELECT SUM(subtotal) FROM sale_items WHERE sale_id=?", (sale_id,))
         new_total = c.fetchone()[0]
         
         if new_total is None or new_total == 0:
-            # If no items left, delete the entire sale
             c.execute("DELETE FROM sales WHERE id=?", (sale_id,))
         else:
-            # Update the sale total
             c.execute("UPDATE sales SET total=? WHERE id=?", (new_total, sale_id))
     
     conn.commit()
     conn.close()
     
     return redirect(url_for('dashboard'))
+
+def get_active_items():
+    """Helper function to get active items"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM items WHERE active=1 ORDER BY name")
+    items = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return items
 
 if __name__ == '__main__':
     app.run(debug=True)
