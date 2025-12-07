@@ -46,21 +46,21 @@
             {% if items %}
                 {% for item in items %}
                 <div class="item-row">
-                    <div>
-                        <label>{{ item['name'] }}</label>
+                    <div style="flex: 1;">
+                        <label>{{ item.name }}</label>
                         <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
-                            ₱{{ "%.2f"|format(item['price']) }} per unit
+                            ₱{{ "%.2f"|format(item.price) }} per unit
                         </p>
                     </div>
                     <div>
-                        <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                        <input type="hidden" name="item_id" value="{{ item.id }}">
                         <input type="number" 
                                name="quantity" 
                                min="0" 
                                value="0" 
                                placeholder="Qty"
                                class="quantity-input"
-                               data-price="{{ item['price'] }}">
+                               data-price="{{ item.price }}">
                     </div>
                 </div>
                 {% endfor %}

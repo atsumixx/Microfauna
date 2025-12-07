@@ -137,7 +137,7 @@ def dashboard():
                          top_items=top_items,
                          expense_breakdown=expense_breakdown)
 
-# --- NEW API ENDPOINTS FOR CHARTS ---
+# --- API ENDPOINTS FOR CHARTS ---
 @app.route('/api/charts/monthly-sales')
 def api_monthly_sales():
     """Get monthly sales data for chart"""
@@ -232,7 +232,7 @@ def api_monthly_comparison():
     conn.close()
     return jsonify(result)
 
-# Keep all existing routes from original app.py
+# --- SALES ROUTES ---
 @app.route('/add-sale', methods=['GET', 'POST'])
 def add_sale():
     """Add new sale"""
@@ -417,6 +417,7 @@ def edit_sale(sale_id):
                          items=items,
                          items_json=items_json)
 
+# --- ITEMS ROUTES ---
 @app.route('/items')
 def manage_items():
     """Manage items"""
@@ -495,6 +496,7 @@ def delete_item(item_id):
     
     return redirect(url_for('manage_items'))
 
+# --- EXPENSE ROUTES ---
 @app.route('/expenses')
 def view_expenses():
     """View all expenses"""
@@ -633,6 +635,7 @@ def delete_item_sales(item_name):
     
     return redirect(url_for('dashboard'))
 
+# --- HELPER FUNCTIONS ---
 def get_active_items():
     """Helper function to get active items"""
     conn = get_db()
