@@ -272,18 +272,31 @@ def add_sale():
 
                 conn.commit()
                 conn.close()
-                return redirect(url_for('dashboard'))
+                
+                # Return JSON response for receipt display
+                return jsonify({
+                    'success': True,
+                    'sale_id': sale_id,
+                    'customer_name': customer,
+                    'date': date,
+                    'notes': notes,
+                    'items': [
+                        {
+                            'name': entry[0],
+                            'quantity': entry[1],
+                            'price': entry[2],
+                            'subtotal': entry[3]
+                        } for entry in sale_entries
+                    ],
+                    'total': total
+                })
             else:
                 conn.close()
-                return render_template('add_sale.html', 
-                                     items=get_active_items(), 
-                                     error="Please add at least one item to the sale.")
+                return jsonify({'success': False, 'error': 'Please add at least one item to the sale.'}), 400
         
         except Exception as e:
             conn.close()
-            return render_template('add_sale.html', 
-                                 items=get_active_items(), 
-                                 error=f"Error adding sale: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     conn.close()
     return render_template('add_sale.html', 

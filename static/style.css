@@ -660,3 +660,422 @@ textarea {
     font-weight: bold;
     margin-right: 5px;
 }
+
+/* Add these mobile-responsive rules to the END of your style.css file */
+
+/* ===== Enhanced Mobile Responsive Design ===== */
+
+/* Tablets and smaller */
+@media (max-width: 1024px) {
+    .container {
+        padding: 20px 15px;
+    }
+
+    .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-card .value {
+        font-size: 1.8rem;
+    }
+
+    table {
+        font-size: 0.95rem;
+    }
+
+    th, td {
+        padding: 12px 10px;
+    }
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+    /* Container & Layout */
+    .container {
+        padding: 15px 10px;
+    }
+
+    /* Header with logo */
+    .logo {
+        gap: 10px;
+    }
+
+    .logo img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .logo-text {
+        font-size: 1.2rem;
+    }
+
+    /* Theme toggle - make it smaller */
+    .theme-toggle {
+        width: 45px;
+        height: 45px;
+        top: 15px;
+        right: 15px;
+    }
+
+    .theme-toggle svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Chart icon button */
+    .chart-icon-btn {
+        width: 45px;
+        height: 45px;
+    }
+
+    .chart-icon-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    /* Statistics Grid - Stack vertically */
+    .card-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .stat-card {
+        padding: 20px;
+    }
+
+    .stat-card h2 {
+        font-size: 0.8rem;
+    }
+
+    .stat-card .value {
+        font-size: 1.5rem;
+    }
+
+    /* Action Buttons - Stack vertically */
+    .actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 14px 20px;
+        font-size: 1rem;
+    }
+
+    /* Cards */
+    .card {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .card h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+
+    /* Tables - Make scrollable horizontally */
+    .card > table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    table {
+        font-size: 0.85rem;
+        min-width: 600px; /* Prevent too much squishing */
+    }
+
+    th, td {
+        padding: 10px 8px;
+    }
+
+    /* Dropdown menu positioning */
+    .dropdown-content {
+        right: auto;
+        left: 0;
+        min-width: 120px;
+    }
+
+    /* Forms */
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 14px;
+    }
+
+    label {
+        font-size: 0.95rem;
+    }
+
+    /* Item rows */
+    .item-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .item-row > div {
+        width: 100% !important;
+    }
+
+    .item-row input[type="number"] {
+        width: 100% !important;
+    }
+
+    .item-management-row {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .item-management-row input {
+        width: 100% !important;
+    }
+
+    .item-management-row > div {
+        width: 100%;
+    }
+
+    /* Search form */
+    .search-form {
+        flex-direction: column;
+    }
+
+    .search-form input {
+        width: 100%;
+    }
+
+    /* Modal adjustments */
+    .modal-content {
+        width: 95%;
+        margin: 10px auto;
+        max-height: 90vh;
+    }
+
+    .modal-header {
+        padding: 15px 20px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.3rem;
+    }
+
+    .modal-body {
+        padding: 20px 15px;
+        max-height: calc(90vh - 120px);
+    }
+
+    .close {
+        font-size: 30px;
+    }
+
+    /* Chart tabs */
+    .chart-tabs {
+        flex-direction: column;
+    }
+
+    .tab-btn {
+        width: 100%;
+        padding: 12px 16px;
+    }
+
+    .chart-container {
+        padding: 15px;
+    }
+
+    /* Receipt modal - mobile friendly */
+    #receiptModal .modal-content {
+        width: 95%;
+        max-width: 95%;
+    }
+
+    #receiptContent {
+        padding: 20px 15px !important;
+        font-size: 12px;
+    }
+
+    #receiptContent table {
+        font-size: 11px;
+    }
+
+    #receiptContent h1 {
+        font-size: 20px !important;
+    }
+
+    /* Confirmation dialog */
+    #confirmDialog .modal-content {
+        width: 90%;
+        max-width: 90%;
+    }
+
+    #confirmDialog .modal-body {
+        padding: 20px;
+    }
+
+    #confirmDialog p {
+        font-size: 1rem;
+    }
+
+    /* Two column grid - make single column on mobile */
+    div[style*="grid-template-columns"] {
+        display: block !important;
+    }
+
+    div[style*="grid-template-columns"] > div {
+        margin-bottom: 15px;
+    }
+
+    /* Typography adjustments */
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    h2 {
+        font-size: 1.3rem;
+    }
+
+    h3 {
+        font-size: 1.1rem;
+    }
+
+    /* Alert messages */
+    .alert {
+        padding: 12px 15px;
+        font-size: 0.9rem;
+    }
+
+    /* List items in sales view */
+    td ul {
+        font-size: 0.8rem;
+    }
+
+    td ul li {
+        padding: 3px 0 !important;
+    }
+}
+
+/* Extra small devices (phones in portrait) */
+@media (max-width: 480px) {
+    .logo-text {
+        font-size: 1rem;
+    }
+
+    .logo img {
+        width: 35px;
+        height: 35px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .stat-card {
+        padding: 15px;
+    }
+
+    .stat-card .value {
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        padding: 12px 16px;
+        font-size: 0.95rem;
+    }
+
+    .card {
+        padding: 12px;
+    }
+
+    table {
+        font-size: 0.8rem;
+        min-width: 500px;
+    }
+
+    th, td {
+        padding: 8px 6px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.1rem;
+    }
+
+    #receiptContent {
+        padding: 15px 10px !important;
+        font-size: 11px;
+    }
+
+    #receiptContent table {
+        font-size: 10px;
+    }
+}
+
+/* Landscape orientation fixes */
+@media (max-width: 768px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 85vh;
+    }
+
+    .modal-body {
+        max-height: calc(85vh - 100px);
+    }
+
+    .stat-card .value {
+        font-size: 1.4rem;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger tap targets */
+    .actions-btn {
+        padding: 8px 15px;
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        min-height: 48px; /* iOS recommendation */
+    }
+
+    /* Better spacing for touch */
+    .dropdown-content a,
+    .dropdown-content button {
+        padding: 15px 18px;
+        font-size: 1rem;
+    }
+
+    /* Prevent double-tap zoom */
+    * {
+        touch-action: manipulation;
+    }
+}
+
+/* Print styles for receipt */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #receiptContent,
+    #receiptContent * {
+        visibility: visible;
+    }
+
+    #receiptContent {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    .modal-header,
+    .close,
+    button {
+        display: none !important;
+    }
+}

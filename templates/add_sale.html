@@ -86,7 +86,32 @@
         </form>
     </div>
 
+    <!-- Receipt Modal -->
+    <div id="receiptModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px; background: white; color: black;">
+            <div class="modal-header" style="background: white; border-bottom: 2px solid black;">
+                <h2 style="color: black; margin: 0;">🧾 RECEIPT</h2>
+                <span class="close" onclick="closeReceiptModal()" style="color: black;">&times;</span>
+            </div>
+            <div class="modal-body" id="receiptContent" style="background: white; font-family: 'Courier New', monospace; padding: 30px;">
+                <!-- Receipt content will be inserted here -->
+            </div>
+            <div style="padding: 20px; background: white; border-top: 2px solid black; text-align: center;">
+                <button class="btn" onclick="closeReceiptModal()" style="background: black; color: white;">Close</button>
+                <button class="btn btn-secondary" id="goDashboardBtn" style="background: white; color: black; border: 2px solid black;">
+                    Go to Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Go to dashboard button listener
+        document.getElementById("goDashboardBtn").addEventListener("click", function () {
+            window.location.href = "{{ url_for('dashboard') }}";
+        });
+
+        // Quantity inputs and total
         const quantityInputs = document.querySelectorAll('.quantity-input');
         const totalAmountEl = document.getElementById('totalAmount');
         const orderSummaryEl = document.getElementById('orderSummary');
@@ -122,17 +147,159 @@
             input.addEventListener('input', updateTotal);
         });
 
-        document.getElementById('saleForm').addEventListener('submit', function(e) {
+        // Escape function for safe user input
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        // Form submission with fetch
+        document.getElementById('saleForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
             let hasItems = false;
             quantityInputs.forEach(input => {
                 if (parseInt(input.value) > 0) hasItems = true;
             });
-
             if (!hasItems) {
-                e.preventDefault();
                 alert('Please add at least one item to the sale.');
+                return;
+            }
+
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('/add-sale', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showReceiptDialog(data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error submitting sale: ' + error.message);
+            }
+        });
+
+        // Receipt functions
+        let pendingSaleData = null;
+
+        function showReceiptDialog(saleData) {
+            pendingSaleData = saleData;
+            document.getElementById('confirmDialog').style.display = 'block';
+        }
+
+        function displayReceipt(saleData) {
+            const receiptContent = document.getElementById('receiptContent');
+            const currentDate = new Date().toLocaleString();
+
+            let itemsHTML = '';
+            saleData.items.forEach(item => {
+                itemsHTML += `
+                    <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc;">${escapeHTML(item.name)}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: center;">${item.quantity}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: right;">₱${item.price.toFixed(2)}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: right;">₱${item.subtotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            receiptContent.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 15px;">
+                    <h1 style="margin: 0; font-size: 24px;">MICROFAUNA SALES</h1>
+                    <p style="margin: 5px 0;">Sales Receipt</p>
+                </div>
+
+                <div style="margin-bottom: 20px; font-size: 14px;">
+                    <p style="margin: 5px 0;"><strong>Receipt #:</strong> ${escapeHTML(saleData.sale_id)}</p>
+                    <p style="margin: 5px 0;"><strong>Customer:</strong> ${escapeHTML(saleData.customer_name)}</p>
+                    <p style="margin: 5px 0;"><strong>Date:</strong> ${escapeHTML(saleData.date)}</p>
+                    <p style="margin: 5px 0;"><strong>Time:</strong> ${escapeHTML(currentDate)}</p>
+                    ${saleData.notes ? `<p style="margin: 5px 0;"><strong>Notes:</strong> ${escapeHTML(saleData.notes)}</p>` : ''}
+                </div>
+
+                <table style="width: 100%; margin: 20px 0; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid black;">
+                            <th style="padding: 10px 0; text-align: left;">ITEM</th>
+                            <th style="padding: 10px 0; text-align: center;">QTY</th>
+                            <th style="padding: 10px 0; text-align: right;">PRICE</th>
+                            <th style="padding: 10px 0; text-align: right;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHTML}
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid black;">
+                    <div style="text-align: right; font-size: 18px;">
+                        <strong>TOTAL: ₱${saleData.total.toFixed(2)}</strong>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px; text-align: center; font-size: 12px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="margin: 5px 0;">Thank you for your purchase!</p>
+                    <p style="margin: 5px 0;">Visit us again soon</p>
+                </div>
+            `;
+
+            document.getElementById('receiptModal').style.display = 'block';
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+            window.location.href = "{{ url_for('dashboard') }}";
+        }
+
+        function viewReceiptFromDialog() {
+            document.getElementById('confirmDialog').style.display = 'none';
+            displayReceipt(pendingSaleData);
+        }
+
+        function skipReceipt() {
+            document.getElementById('confirmDialog').style.display = 'none';
+            window.location.href = "{{ url_for('dashboard') }}";
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const receiptModal = document.getElementById('receiptModal');
+            const confirmDialog = document.getElementById('confirmDialog');
+
+            if (event.target === receiptModal) {
+                closeReceiptModal();
+            }
+            if (event.target === confirmDialog) {
+                skipReceipt();
             }
         });
     </script>
+
+    <!-- Custom Confirmation Dialog -->
+    <div id="confirmDialog" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px; background: var(--bg-card);">
+            <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+                <h2 style="color: var(--text-primary); margin: 0;">✅ Success!</h2>
+            </div>
+            <div class="modal-body" style="padding: 30px; text-align: center;">
+                <p style="font-size: 1.1rem; margin-bottom: 30px; color: var(--text-primary);">Sale added successfully!</p>
+                <p style="margin-bottom: 20px; color: var(--text-secondary);">Would you like to view the receipt?</p>
+                <div style="display: flex; gap: 10px; flex-direction: column;">
+                    <button class="btn" onclick="viewReceiptFromDialog()" style="width: 100%;">Yes, Show Receipt</button>
+                    <button class="btn btn-secondary" onclick="skipReceipt()" style="width: 100%;">No, Go to Dashboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
