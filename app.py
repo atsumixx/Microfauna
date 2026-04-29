@@ -13,17 +13,18 @@ app = Flask(__name__)
 
 # --- Database Setup (Vercel/Supabase Fix) ---
 def get_db():
-    """Create a database connection with URL auto-fix"""
+    """Create a database connection with URL auto-fix and SSL"""
     raw_uri = os.environ.get('DATABASE_URL')
     
     if not raw_uri:
-        raise KeyError("DATABASE_URL not found in Environment Variables!")
+        raise RuntimeError("DATABASE_URL not found in Environment Variables!")
         
-    # Fix the protocol for cloud compatibility[cite: 1]
+    # Fix the protocol for SQLAlchemy/psycopg2 compatibility
     if raw_uri.startswith("postgres://"):
         raw_uri = raw_uri.replace("postgres://", "postgresql://", 1)
         
-    conn = psycopg2.connect(raw_uri)
+    # sslmode='require' is necessary for Supabase on Vercel
+    conn = psycopg2.connect(raw_uri, sslmode='require')
     conn.cursor_factory = psycopg2.extras.RealDictCursor
     return conn
 
@@ -32,7 +33,6 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Create tables[cite: 1]
     c.execute('''CREATE TABLE IF NOT EXISTS items (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) NOT NULL UNIQUE,
@@ -68,7 +68,7 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )''')
     
-    # Insert default items only if table is empty[cite: 1]
+    # Insert default items only if table is empty
     c.execute("SELECT COUNT(*) FROM items")
     if c.fetchone()['count'] == 0:
         items = [
@@ -83,12 +83,12 @@ def init_db():
     conn.close()
 
 # --- VERCEL STARTUP TRIGGER ---
-# This runs the initialization outside of the __main__ block[cite: 1]
+# Safely attempt DB init at startup; won't crash the app if it fails
 try:
     init_db()
     print("Database initialized successfully on startup.")
 except Exception as e:
-    print(f"Startup Database Error: {e}")
+    print(f"WARNING: Startup DB init failed (tables may already exist): {e}")
 
 # --- ROUTES ---
 @app.route('/')
@@ -97,35 +97,29 @@ def dashboard():
     conn = get_db()
     c = conn.cursor()
     
-    # Get statistics[cite: 1]
     c.execute("SELECT COALESCE(SUM(total), 0) FROM sales")
     total_revenue = c.fetchone()['coalesce']
     
     c.execute("SELECT COUNT(*) FROM sales")
     total_transactions = c.fetchone()['count']
     
-    # Get total expenses[cite: 1]
     c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses")
     total_expenses = c.fetchone()['coalesce']
     
-    # Calculate net profit[cite: 1]
     net_profit = total_revenue - total_expenses
     
-    # Get recent sales (last 5)[cite: 1]
     c.execute("""SELECT id, customer_name, date, total 
                  FROM sales 
                  ORDER BY date DESC, id DESC 
                  LIMIT 5""")
     recent_sales = c.fetchall()
     
-    # Get recent expenses (last 5)[cite: 1]
     c.execute("""SELECT id, description, amount, category, date 
                  FROM expenses 
                  ORDER BY date DESC, id DESC 
                  LIMIT 5""")
     recent_expenses = c.fetchall()
     
-    # Get top selling items[cite: 1]
     c.execute("""SELECT si.item_name, i.id as item_id, SUM(si.quantity) as total_qty, SUM(si.subtotal) as total_sales
                  FROM sale_items si
                  LEFT JOIN items i ON si.item_name = i.name
@@ -134,7 +128,6 @@ def dashboard():
                  LIMIT 5""")
     top_items = c.fetchall()
     
-    # Get expense breakdown by category[cite: 1]
     c.execute("""SELECT category, SUM(amount) as total, 
                  STRING_AGG(id::text, ',') as expense_ids
                  FROM expenses
@@ -171,7 +164,7 @@ def api_monthly_sales():
                  LIMIT 12""")
     
     data = [dict(row) for row in c.fetchall()]
-    data.reverse()  # Show oldest to newest[cite: 1]
+    data.reverse()
     conn.close()
     
     return jsonify(data)
@@ -216,19 +209,16 @@ def api_monthly_comparison():
     conn = get_db()
     c = conn.cursor()
     
-    # Get monthly sales[cite: 1]
     c.execute("""SELECT to_char(date, 'YYYY-MM') as month, SUM(total) as amount, 'Revenue' as type
                  FROM sales
                  GROUP BY to_char(date, 'YYYY-MM')""")
     sales_data = [dict(row) for row in c.fetchall()]
     
-    # Get monthly expenses[cite: 1]
     c.execute("""SELECT to_char(date, 'YYYY-MM') as month, SUM(amount) as amount, 'Expenses' as type
                  FROM expenses
                  GROUP BY to_char(date, 'YYYY-MM')""")
     expense_data = [dict(row) for row in c.fetchall()]
     
-    # Combine and organize data[cite: 1]
     all_months = set()
     for row in sales_data + expense_data:
         all_months.add(row['month'])
@@ -245,7 +235,7 @@ def api_monthly_comparison():
         })
     
     result.sort(key=lambda x: x['month'])
-    result = result[-12:]  # Last 12 months[cite: 1]
+    result = result[-12:]
     
     conn.close()
     return jsonify(result)
@@ -653,7 +643,7 @@ def delete_item_sales(item_name):
     c = conn.cursor()
     
     c.execute("SELECT DISTINCT sale_id FROM sale_items WHERE item_name=%s", (item_name,))
-    sale_ids = [row[0] for row in c.fetchall()]
+    sale_ids = [row['sale_id'] for row in c.fetchall()]
     
     c.execute("DELETE FROM sale_items WHERE item_name=%s", (item_name,))
     
