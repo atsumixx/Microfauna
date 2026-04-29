@@ -1,0 +1,29 @@
+# Python environment
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# SQLite DB file
+sales.db
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+dist/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE/editor files
+.vscode/
+*.swp
+*.swo
+.DS_Store
