@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-application = app
 
 # --- Database Setup ---
 def get_db():
