@@ -23,7 +23,7 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Create tables
+    # Create tables[cite: 1]
     c.execute('''CREATE TABLE IF NOT EXISTS items (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) NOT NULL UNIQUE,
@@ -59,7 +59,7 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )''')
     
-    # Insert default items only if table is empty
+    # Insert default items only if table is empty[cite: 1]
     c.execute("SELECT COUNT(*) FROM items")
     if c.fetchone()['count'] == 0:
         items = [
@@ -73,9 +73,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Initialize database
-init_db()
-
 # --- ROUTES ---
 @app.route('/')
 def dashboard():
@@ -83,35 +80,35 @@ def dashboard():
     conn = get_db()
     c = conn.cursor()
     
-    # Get statistics
+    # Get statistics[cite: 1]
     c.execute("SELECT COALESCE(SUM(total), 0) FROM sales")
     total_revenue = c.fetchone()['coalesce']
     
     c.execute("SELECT COUNT(*) FROM sales")
     total_transactions = c.fetchone()['count']
     
-    # Get total expenses
+    # Get total expenses[cite: 1]
     c.execute("SELECT COALESCE(SUM(amount), 0) FROM expenses")
     total_expenses = c.fetchone()['coalesce']
     
-    # Calculate net profit
+    # Calculate net profit[cite: 1]
     net_profit = total_revenue - total_expenses
     
-    # Get recent sales (last 5)
+    # Get recent sales (last 5)[cite: 1]
     c.execute("""SELECT id, customer_name, date, total 
                  FROM sales 
                  ORDER BY date DESC, id DESC 
                  LIMIT 5""")
     recent_sales = c.fetchall()
     
-    # Get recent expenses (last 5)
+    # Get recent expenses (last 5)[cite: 1]
     c.execute("""SELECT id, description, amount, category, date 
                  FROM expenses 
                  ORDER BY date DESC, id DESC 
                  LIMIT 5""")
     recent_expenses = c.fetchall()
     
-    # Get top selling items
+    # Get top selling items[cite: 1]
     c.execute("""SELECT si.item_name, i.id as item_id, SUM(si.quantity) as total_qty, SUM(si.subtotal) as total_sales
                  FROM sale_items si
                  LEFT JOIN items i ON si.item_name = i.name
@@ -120,7 +117,7 @@ def dashboard():
                  LIMIT 5""")
     top_items = c.fetchall()
     
-    # Get expense breakdown by category
+    # Get expense breakdown by category[cite: 1]
     c.execute("""SELECT category, SUM(amount) as total, 
                  STRING_AGG(id::text, ',') as expense_ids
                  FROM expenses
@@ -157,7 +154,7 @@ def api_monthly_sales():
                  LIMIT 12""")
     
     data = [dict(row) for row in c.fetchall()]
-    data.reverse()  # Show oldest to newest
+    data.reverse()  # Show oldest to newest[cite: 1]
     conn.close()
     
     return jsonify(data)
@@ -202,19 +199,19 @@ def api_monthly_comparison():
     conn = get_db()
     c = conn.cursor()
     
-    # Get monthly sales
+    # Get monthly sales[cite: 1]
     c.execute("""SELECT to_char(date, 'YYYY-MM') as month, SUM(total) as amount, 'Revenue' as type
                  FROM sales
                  GROUP BY to_char(date, 'YYYY-MM')""")
     sales_data = [dict(row) for row in c.fetchall()]
     
-    # Get monthly expenses
+    # Get monthly expenses[cite: 1]
     c.execute("""SELECT to_char(date, 'YYYY-MM') as month, SUM(amount) as amount, 'Expenses' as type
                  FROM expenses
                  GROUP BY to_char(date, 'YYYY-MM')""")
     expense_data = [dict(row) for row in c.fetchall()]
     
-    # Combine and organize data
+    # Combine and organize data[cite: 1]
     all_months = set()
     for row in sales_data + expense_data:
         all_months.add(row['month'])
@@ -231,7 +228,7 @@ def api_monthly_comparison():
         })
     
     result.sort(key=lambda x: x['month'])
-    result = result[-12:]  # Last 12 months
+    result = result[-12:]  # Last 12 months[cite: 1]
     
     conn.close()
     return jsonify(result)
@@ -277,7 +274,6 @@ def add_sale():
                 conn.commit()
                 conn.close()
                 
-                # Return JSON response for receipt display
                 return jsonify({
                     'success': True,
                     'sale_id': sale_id,
@@ -508,7 +504,7 @@ def delete_item(item_id):
         count = c.fetchone()['count']
         
         if count > 0:
-            c.execute("UPDATE items SET active = 0 WHERE id=%s", (item_id,))
+            c.execute("UPDATE items SET active = FALSE WHERE id=%s", (item_id,))
         else:
             c.execute("DELETE FROM items WHERE id=%s", (item_id,))
         
@@ -668,5 +664,8 @@ def get_active_items():
     conn.close()
     return items
 
+# --- MAIN BLOCK ---
 if __name__ == '__main__':
+    # This only runs on your local machine, NOT on Vercel[cite: 1]
+    init_db()
     app.run(debug=True)
