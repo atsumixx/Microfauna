@@ -6,14 +6,24 @@ import json
 import os
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# --- Database Setup ---
+# --- Database Setup (Vercel/Supabase Fix) ---
 def get_db():
-    """Create a database connection"""
-    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    """Create a database connection with URL auto-fix"""
+    raw_uri = os.environ.get('DATABASE_URL')
+    
+    if not raw_uri:
+        raise KeyError("DATABASE_URL not found in Environment Variables!")
+        
+    # Fix the protocol for cloud compatibility[cite: 1]
+    if raw_uri.startswith("postgres://"):
+        raw_uri = raw_uri.replace("postgres://", "postgresql://", 1)
+        
+    conn = psycopg2.connect(raw_uri)
     conn.cursor_factory = psycopg2.extras.RealDictCursor
     return conn
 
@@ -71,6 +81,14 @@ def init_db():
     
     conn.commit()
     conn.close()
+
+# --- VERCEL STARTUP TRIGGER ---
+# This runs the initialization outside of the __main__ block[cite: 1]
+try:
+    init_db()
+    print("Database initialized successfully on startup.")
+except Exception as e:
+    print(f"Startup Database Error: {e}")
 
 # --- ROUTES ---
 @app.route('/')
@@ -665,6 +683,4 @@ def get_active_items():
 
 # --- MAIN BLOCK ---
 if __name__ == '__main__':
-    # This only runs on your local machine, NOT on Vercel[cite: 1]
-    init_db()
     app.run(debug=True)
