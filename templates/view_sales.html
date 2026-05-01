@@ -78,7 +78,7 @@
                                 <button class="actions-btn" onclick="toggleDropdown('dropdown-{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
                                     <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
-                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">View Receipt</a>
+                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
                                     <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">Download Receipt</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
@@ -115,7 +115,7 @@
     <div id="receiptModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:500px; background:white; color:black;">
             <div class="modal-header" style="background:white; border-bottom:2px solid black;">
-                <h2 style="color:black; margin:0;">🧾 RECEIPT</h2>
+                <h2 style="color:black; margin:0;">RECEIPT</h2>
                 <span class="close" onclick="closeReceiptModal()" style="color:black; cursor:pointer;">&times;</span>
             </div>
             <div class="modal-body" id="receiptContent"
