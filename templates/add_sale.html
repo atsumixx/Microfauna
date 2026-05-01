@@ -6,10 +6,79 @@
     <link rel="manifest" href="/static/manifest.json">
     <title>Add Sale - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* ── Quantity stepper ── */
+        .qty-stepper {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 130px;
+            background: var(--bg-input, var(--bg-secondary));
+        }
+        .qty-stepper button {
+            all: unset;
+            width: 40px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--text-primary);
+            background: transparent;
+            transition: background 0.15s;
+            flex-shrink: 0;
+        }
+        .qty-stepper button:active { background: var(--border-color); }
+        .qty-stepper input[type=number] {
+            all: unset;
+            width: 50px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-left: 1.5px solid var(--border-color);
+            border-right: 1.5px solid var(--border-color);
+            height: 44px;
+            -moz-appearance: textfield;
+            appearance: none;
+        }
+        .qty-stepper input[type=number]::-webkit-inner-spin-button,
+        .qty-stepper input[type=number]::-webkit-outer-spin-button { display: none; }
+
+        .item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            background: var(--bg-secondary);
+            gap: 16px;
+        }
+        .item-row .item-info { flex: 1; }
+        .item-row .item-info label { font-weight: 600; font-size: 1rem; }
+        .item-row .item-info p { color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px; }
+
+        /* discount field */
+        .discount-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .discount-row label { font-weight: 600; white-space: nowrap; }
+        .discount-row input { max-width: 160px; }
+    </style>
 </head>
 <body>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="5" fill="currentColor"/>
             <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -20,297 +89,309 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
         </svg>
     </button>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
-    
+
     <div class="container">
         <h1>Add New Sale</h1>
-        
+
         {% if error %}
-        <div class="alert alert-error">
-            <strong>Error:</strong> {{ error }}
-        </div>
+        <div class="alert alert-error"><strong>Error:</strong> {{ error }}</div>
         {% endif %}
-        
+
         <form method="POST" id="saleForm">
             <label for="customer_name">Customer Name *</label>
             <input type="text" id="customer_name" name="customer_name" required placeholder="Enter customer name">
-            
+
             <label for="date">Sale Date *</label>
             <input type="date" id="date" name="date" value="{{ today }}" required>
-            
+
             <h3>Select Items</h3>
-            
+
             {% if items %}
                 {% for item in items %}
                 <div class="item-row">
-                    <div style="flex: 1;">
+                    <div class="item-info">
                         <label>{{ item.name }}</label>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
-                            ₱{{ "%.2f"|format(item.price) }} per unit
-                        </p>
+                        <p>₱{{ "%.2f"|format(item.price) }} per unit</p>
                     </div>
-                    <div>
-                        <input type="hidden" name="item_id" value="{{ item.id }}">
-                        <input type="number" 
-                               name="quantity" 
-                               min="0" 
-                               value="0" 
-                               placeholder="Qty"
-                               class="quantity-input"
-                               data-price="{{ item.price }}">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <div class="qty-stepper">
+                        <button type="button" onclick="changeQty(this, -1)">−</button>
+                        <input type="number" name="quantity" min="0" value="0"
+                               data-price="{{ item.price }}" oninput="updateTotal()">
+                        <button type="button" onclick="changeQty(this, 1)">+</button>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
                 <div class="alert alert-error">
-                    No items available. Please add items first in <a href="{{ url_for('manage_items') }}">Manage Items</a>.
+                    No items available. Please add items first in
+                    <a href="{{ url_for('manage_items') }}">Manage Items</a>.
                 </div>
             {% endif %}
-            
+
             <label for="notes">Notes (Optional)</label>
-            <textarea id="notes" name="notes" placeholder="Add any additional notes about this sale..."></textarea>
-            
+            <textarea id="notes" name="notes" placeholder="Add any additional notes..."></textarea>
+
+            <!-- Discount -->
+            <div class="discount-row">
+                <label for="discount">Discount (₱)</label>
+                <input type="number" id="discount" name="discount" min="0" step="0.01"
+                       value="0" placeholder="0.00" oninput="updateTotal()">
+            </div>
+
+            <!-- Order Summary -->
             <div class="card" style="margin-top: 20px;">
                 <h2>Order Summary</h2>
                 <div id="orderSummary">
                     <p style="color: var(--text-secondary);">Add items to see summary</p>
                 </div>
-                <h3 style="margin-top: 15px;">Total: <span id="totalAmount">₱0.00</span></h3>
+                <div id="discountLine" style="display:none; margin-top:8px; color: var(--accent-danger);">
+                    Discount: −₱<span id="discountAmount">0.00</span>
+                </div>
+                <h3 style="margin-top: 12px;">Total: <span id="totalAmount">₱0.00</span></h3>
             </div>
-            
+
             <button class="btn" type="submit">Save Sale</button>
             <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
         </form>
     </div>
 
     <!-- Receipt Modal -->
-    <div id="receiptModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px; background: white; color: black;">
-            <div class="modal-header" style="background: white; border-bottom: 2px solid black;">
-                <h2 style="color: black; margin: 0;">RECEIPT</h2>
-                <span class="close" onclick="closeReceiptModal()" style="color: black;">&times;</span>
+    <div id="receiptModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px; background:white; color:black;">
+            <div class="modal-header" style="background:white; border-bottom:2px solid black;">
+                <h2 style="color:black; margin:0;">🧾 RECEIPT</h2>
+                <span class="close" onclick="closeReceiptModal()" style="color:black; cursor:pointer;">&times;</span>
             </div>
-            <div class="modal-body" id="receiptContent" style="background: white; font-family: 'Courier New', monospace; padding: 30px;">
-                <!-- Receipt content will be inserted here -->
+            <div id="receiptContent"
+                 style="background:white; font-family:'Courier New',monospace; padding:30px; color:black;">
             </div>
-            <div style="padding: 20px; background: white; border-top: 2px solid black; text-align: center;">
-                <button class="btn" onclick="closeReceiptModal()" style="background: black; color: white;">Close</button>
-                <button class="btn btn-secondary" id="goDashboardBtn" style="background: white; color: black; border: 2px solid black;">
+            <div style="padding:20px; background:white; border-top:2px solid black;
+                        display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn" onclick="closeReceiptModal()"
+                        style="background:black; color:white;">Close</button>
+                <button class="btn btn-secondary" id="copyReceiptBtn"
+                        style="background:white; color:black; border:2px solid black;">
+                    📋 Copy as Image
+                </button>
+                <button class="btn btn-secondary" id="downloadReceiptBtn"
+                        style="background:white; color:black; border:2px solid black;">
+                    ⬇ Download PNG
+                </button>
+                <button class="btn btn-secondary" id="goDashboardBtn"
+                        style="background:white; color:black; border:2px solid black;">
                     Go to Dashboard
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Confirm Dialog -->
+    <div id="confirmDialog" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:400px; background:var(--bg-card);">
+            <div class="modal-header" style="background:var(--bg-secondary); border-bottom:1px solid var(--border-color);">
+                <h2 style="color:var(--text-primary); margin:0;">Sale Saved!</h2>
+            </div>
+            <div class="modal-body" style="padding:30px; text-align:center;">
+                <p style="font-size:1.1rem; margin-bottom:20px; color:var(--text-primary);">
+                    Would you like to view the receipt?
+                </p>
+                <div style="display:flex; gap:10px; flex-direction:column;">
+                    <button class="btn" onclick="viewReceiptFromDialog()" style="width:100%;">Yes, Show Receipt</button>
+                    <button class="btn btn-secondary" onclick="skipReceipt()" style="width:100%;">No, Go to Dashboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
-        // Go to dashboard button listener
-        document.getElementById("goDashboardBtn").addEventListener("click", function () {
-            window.location.href = "{{ url_for('dashboard') }}";
-        });
+        // ── Quantity stepper ─────────────────────────
+        function changeQty(btn, delta) {
+            const input = btn.parentElement.querySelector('input[type=number]');
+            let val = parseInt(input.value) || 0;
+            val = Math.max(0, val + delta);
+            input.value = val;
+            updateTotal();
+        }
 
-        // Quantity inputs and total
-        const quantityInputs = document.querySelectorAll('.quantity-input');
-        const totalAmountEl = document.getElementById('totalAmount');
-        const orderSummaryEl = document.getElementById('orderSummary');
-
+        // ── Total calculation ────────────────────────
         function updateTotal() {
-            let total = 0;
+            const inputs   = document.querySelectorAll('.qty-stepper input[type=number]');
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            let subtotal   = 0;
             let summaryHTML = '';
-            let itemCount = 0;
+            let itemCount  = 0;
 
-            quantityInputs.forEach(input => {
-                const quantity = parseInt(input.value) || 0;
-                const price = parseFloat(input.dataset.price);
-                const subtotal = quantity * price;
-
-                if (quantity > 0) {
-                    const itemName = input.closest('.item-row').querySelector('label').textContent;
-                    total += subtotal;
+            inputs.forEach(input => {
+                const qty      = parseInt(input.value) || 0;
+                const price    = parseFloat(input.dataset.price);
+                const lineTotal = qty * price;
+                if (qty > 0) {
+                    const name = input.closest('.item-row').querySelector('label').textContent.trim();
+                    subtotal  += lineTotal;
                     itemCount++;
-                    summaryHTML += `<p>${itemName} × ${quantity} = ₱${subtotal.toFixed(2)}</p>`;
+                    summaryHTML += `<p>${name} × ${qty} = ₱${lineTotal.toFixed(2)}</p>`;
                 }
             });
 
-            if (itemCount === 0) {
-                orderSummaryEl.innerHTML = '<p style="color: var(--text-secondary);">Add items to see summary</p>';
+            document.getElementById('orderSummary').innerHTML =
+                itemCount ? summaryHTML : '<p style="color:var(--text-secondary);">Add items to see summary</p>';
+
+            const discountLine = document.getElementById('discountLine');
+            const total = Math.max(0, subtotal - discount);
+            if (discount > 0 && itemCount > 0) {
+                document.getElementById('discountAmount').textContent = discount.toFixed(2);
+                discountLine.style.display = 'block';
             } else {
-                orderSummaryEl.innerHTML = summaryHTML;
+                discountLine.style.display = 'none';
             }
-
-            totalAmountEl.textContent = `₱${total.toFixed(2)}`;
+            document.getElementById('totalAmount').textContent = `₱${total.toFixed(2)}`;
         }
 
-        quantityInputs.forEach(input => {
-            input.addEventListener('input', updateTotal);
-        });
-
-        // Escape function for safe user input
-        function escapeHTML(str) {
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#39;");
-        }
-
-        // Form submission with fetch
+        // ── Form submit ──────────────────────────────
         document.getElementById('saleForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            const inputs = document.querySelectorAll('.qty-stepper input[type=number]');
             let hasItems = false;
-            quantityInputs.forEach(input => {
-                if (parseInt(input.value) > 0) hasItems = true;
-            });
-            if (!hasItems) {
-                alert('Please add at least one item to the sale.');
-                return;
-            }
+            inputs.forEach(i => { if (parseInt(i.value) > 0) hasItems = true; });
+            if (!hasItems) { alert('Please add at least one item.'); return; }
 
             const formData = new FormData(this);
-
             try {
-                const response = await fetch('/add-sale', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const text = await response.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch {
-                    throw new Error('Invalid server response.');
-                }
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Server error.');
-                }
-
+                const res  = await fetch('/add-sale', { method: 'POST', body: formData });
+                const data = await res.json();
                 if (data.success) {
-                    showReceiptDialog(data);
+                    pendingSaleData = data;
+                    document.getElementById('confirmDialog').style.display = 'block';
                 } else {
                     alert('Error: ' + data.error);
                 }
-            } catch (error) {
-                alert('Error submitting sale: ' + error.message);
+            } catch (err) {
+                alert('Error submitting sale: ' + err.message);
             }
         });
 
-        // Receipt functions
+        // ── Receipt ──────────────────────────────────
         let pendingSaleData = null;
-
-        function showReceiptDialog(saleData) {
-            pendingSaleData = saleData;
-            document.getElementById('confirmDialog').style.display = 'block';
-        }
-
-        function displayReceipt(saleData) {
-            const receiptContent = document.getElementById('receiptContent');
-            const currentDate = new Date().toLocaleString();
-
-            let itemsHTML = '';
-            saleData.items.forEach(item => {
-                itemsHTML += `
-                    <tr>
-                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc;">${escapeHTML(item.name)}</td>
-                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: center;">${item.quantity}</td>
-                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: right;">₱${item.price.toFixed(2)}</td>
-                        <td style="padding: 8px 0; border-bottom: 1px dashed #ccc; text-align: right;">₱${item.subtotal.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-
-            receiptContent.innerHTML = `
-                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 15px;">
-                    <h1 style="margin: 0; font-size: 24px;">MICROFAUNA SALES</h1>
-                    <p style="margin: 5px 0;">Sales Receipt</p>
-                </div>
-
-                <div style="margin-bottom: 20px; font-size: 14px;">
-                    <p style="margin: 5px 0;"><strong>Receipt #:</strong> ${escapeHTML(saleData.sale_id)}</p>
-                    <p style="margin: 5px 0;"><strong>Customer:</strong> ${escapeHTML(saleData.customer_name)}</p>
-                    <p style="margin: 5px 0;"><strong>Date:</strong> ${escapeHTML(saleData.date)}</p>
-                    <p style="margin: 5px 0;"><strong>Time:</strong> ${escapeHTML(currentDate)}</p>
-                    ${saleData.notes ? `<p style="margin: 5px 0;"><strong>Notes:</strong> ${escapeHTML(saleData.notes)}</p>` : ''}
-                </div>
-
-                <table style="width: 100%; margin: 20px 0; font-size: 13px; border-collapse: collapse;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid black;">
-                            <th style="padding: 10px 0; text-align: left;">ITEM</th>
-                            <th style="padding: 10px 0; text-align: center;">QTY</th>
-                            <th style="padding: 10px 0; text-align: right;">PRICE</th>
-                            <th style="padding: 10px 0; text-align: right;">TOTAL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsHTML}
-                    </tbody>
-                </table>
-
-                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid black;">
-                    <div style="text-align: right; font-size: 18px;">
-                        <strong>TOTAL: ₱${saleData.total.toFixed(2)}</strong>
-                    </div>
-                </div>
-
-                <div style="margin-top: 30px; text-align: center; font-size: 12px; border-top: 1px dashed #ccc; padding-top: 15px;">
-                    <p style="margin: 5px 0;">Thank you for your purchase!</p>
-                    <p style="margin: 5px 0;">Visit us again soon</p>
-                </div>
-            `;
-
-            document.getElementById('receiptModal').style.display = 'block';
-        }
-
-        function closeReceiptModal() {
-            document.getElementById('receiptModal').style.display = 'none';
-            window.location.href = "{{ url_for('dashboard') }}";
-        }
 
         function viewReceiptFromDialog() {
             document.getElementById('confirmDialog').style.display = 'none';
             displayReceipt(pendingSaleData);
         }
-
         function skipReceipt() {
             document.getElementById('confirmDialog').style.display = 'none';
             window.location.href = "{{ url_for('dashboard') }}";
         }
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+            window.location.href = "{{ url_for('dashboard') }}";
+        }
 
-        // Close modal when clicking outside
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+        }
+
+        function displayReceipt(data) {
+            let itemsHTML = '';
+            data.items.forEach(item => {
+                itemsHTML += `
+                    <tr>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;">${escapeHTML(item.name)}</td>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${item.quantity}</td>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.price.toFixed(2)}</td>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.subtotal.toFixed(2)}</td>
+                    </tr>`;
+            });
+
+            const discountLine = data.discount > 0
+                ? `<div style="text-align:right;color:#cc0000;margin-top:6px;">Discount: −₱${data.discount.toFixed(2)}</div>`
+                : '';
+
+            document.getElementById('receiptContent').innerHTML = `
+                <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid black;padding-bottom:15px;">
+                    <h1 style="margin:0;font-size:22px;">MICROFAUNA SALES</h1>
+                    <p style="margin:5px 0;font-size:13px;">Sales Receipt</p>
+                </div>
+                <div style="margin-bottom:16px;font-size:13px;">
+                    <p style="margin:4px 0;"><strong>Receipt #:</strong> ${escapeHTML(String(data.sale_id))}</p>
+                    <p style="margin:4px 0;"><strong>Customer:</strong> ${escapeHTML(data.customer_name)}</p>
+                    <p style="margin:4px 0;"><strong>Date:</strong> ${escapeHTML(data.date)}</p>
+                    ${data.notes ? `<p style="margin:4px 0;"><strong>Notes:</strong> ${escapeHTML(data.notes)}</p>` : ''}
+                </div>
+                <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:2px solid black;">
+                            <th style="padding:8px 0;text-align:left;">ITEM</th>
+                            <th style="padding:8px 0;text-align:center;">QTY</th>
+                            <th style="padding:8px 0;text-align:right;">PRICE</th>
+                            <th style="padding:8px 0;text-align:right;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsHTML}</tbody>
+                </table>
+                <div style="margin-top:16px;padding-top:12px;border-top:2px solid black;">
+                    ${discountLine}
+                    <div style="text-align:right;font-size:17px;margin-top:8px;">
+                        <strong>TOTAL: ₱${data.total.toFixed(2)}</strong>
+                    </div>
+                </div>
+                <div style="margin-top:24px;text-align:center;font-size:11px;border-top:1px dashed #ccc;padding-top:12px;">
+                    <p>Thank you for your purchase!</p>
+                    <p>Visit us again soon</p>
+                </div>`;
+
+            document.getElementById('receiptModal').style.display = 'block';
+
+            // Download PNG
+            document.getElementById('downloadReceiptBtn').onclick = () => captureReceipt('download', data.sale_id, data.customer_name);
+            // Copy as image
+            document.getElementById('copyReceiptBtn').onclick = () => captureReceipt('copy');
+            // Dashboard button
+            document.getElementById('goDashboardBtn').onclick = () => { window.location.href = "{{ url_for('dashboard') }}"; };
+        }
+
+        async function captureReceipt(action, saleId, customerName) {
+            const el = document.getElementById('receiptContent');
+            try {
+                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2 });
+                if (action === 'download') {
+                    const link = document.createElement('a');
+                    link.download = `receipt_${saleId}_${(customerName||'').replace(/\s+/g,'_')}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                } else {
+                    canvas.toBlob(async blob => {
+                        try {
+                            await navigator.clipboard.write([
+                                new ClipboardItem({ 'image/png': blob })
+                            ]);
+                            alert('Receipt image copied! You can now paste it in Messenger.');
+                        } catch {
+                            // Fallback: open image in new tab for manual save
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            alert('Clipboard not supported on this browser. The receipt image was opened in a new tab — long press to copy or save it.');
+                        }
+                    }, 'image/png');
+                }
+            } catch(e) {
+                alert('Could not capture receipt image.');
+            }
+        }
+
         window.addEventListener('click', function(event) {
-            const receiptModal = document.getElementById('receiptModal');
-            const confirmDialog = document.getElementById('confirmDialog');
-
-            if (event.target === receiptModal) {
-                closeReceiptModal();
-            }
-            if (event.target === confirmDialog) {
-                skipReceipt();
-            }
+            if (event.target === document.getElementById('receiptModal')) closeReceiptModal();
+            if (event.target === document.getElementById('confirmDialog')) skipReceipt();
         });
     </script>
-
-    <!-- Custom Confirmation Dialog -->
-    <div id="confirmDialog" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 400px; background: var(--bg-card);">
-            <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
-                <h2 style="color: var(--text-primary); margin: 0;">Success!</h2>
-            </div>
-            <div class="modal-body" style="padding: 30px; text-align: center;">
-                <p style="font-size: 1.1rem; margin-bottom: 30px; color: var(--text-primary);">Sale added successfully!</p>
-                <p style="margin-bottom: 20px; color: var(--text-secondary);">Would you like to view the receipt?</p>
-                <div style="display: flex; gap: 10px; flex-direction: column;">
-                    <button class="btn" onclick="viewReceiptFromDialog()" style="width: 100%;">Yes, Show Receipt</button>
-                    <button class="btn btn-secondary" onclick="skipReceipt()" style="width: 100%;">No, Go to Dashboard</button>
-                </div>
-            </div>
-        </div>
-    </div>
 </body>
 </html>

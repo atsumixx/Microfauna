@@ -6,10 +6,79 @@
     <link rel="manifest" href="/static/manifest.json">
     <title>Edit Sale - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .qty-stepper {
+            display: flex;
+            align-items: center;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 130px;
+            background: var(--bg-input, var(--bg-secondary));
+        }
+        .qty-stepper button {
+            all: unset;
+            width: 40px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--text-primary);
+            flex-shrink: 0;
+        }
+        .qty-stepper button:active { background: var(--border-color); }
+        .qty-stepper input[type=number] {
+            all: unset;
+            width: 50px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-left: 1.5px solid var(--border-color);
+            border-right: 1.5px solid var(--border-color);
+            height: 44px;
+            -moz-appearance: textfield;
+            appearance: none;
+        }
+        .qty-stepper input[type=number]::-webkit-inner-spin-button,
+        .qty-stepper input[type=number]::-webkit-outer-spin-button { display: none; }
+
+        .item-edit-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: var(--bg-secondary);
+            flex-wrap: wrap;
+        }
+        .item-edit-row select { flex: 1; min-width: 200px; margin: 0; }
+        .item-edit-row .remove-btn {
+            all: unset;
+            cursor: pointer;
+            color: var(--accent-danger, #ff4444);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 4px 8px;
+        }
+        .discount-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .discount-row label { font-weight: 600; white-space: nowrap; }
+        .discount-row input { max-width: 160px; }
+    </style>
 </head>
 <body>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="5" fill="currentColor"/>
             <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -20,62 +89,70 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
         </svg>
     </button>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
-    
+
     <div class="container">
-        <h1>Edit Sale #{{ sale.id }}</h1>
+        <h1>✏️ Edit Sale #{{ sale.id }}</h1>
 
         {% if error %}
-            <div class="alert alert-error">
-                <strong>Error:</strong> {{ error }}
-            </div>
+        <div class="alert alert-error"><strong>Error:</strong> {{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('edit_sale', sale_id=sale.id) }}" id="editSaleForm">
             <label for="customer_name">Customer Name *</label>
-            <input type="text" id="customer_name" name="customer_name" value="{{ sale.customer_name }}" required>
+            <input type="text" id="customer_name" name="customer_name"
+                   value="{{ sale.customer_name }}" required>
 
             <label for="date">Sale Date *</label>
-            <input type="date" id="date" name="date" value="{{ sale.date }}" required>
+            <!-- Pre-fill existing date, formatted as YYYY-MM-DD for the date input -->
+            <input type="date" id="date" name="date"
+                   value="{{ sale.date | string | truncate(10, True, '') }}" required>
 
             <label for="notes">Notes (Optional)</label>
-            <textarea id="notes" name="notes" placeholder="Add any additional notes...">{{ sale.notes or '' }}</textarea>
+            <textarea id="notes" name="notes"
+                      placeholder="Add any additional notes...">{{ sale.notes or '' }}</textarea>
 
             <h3>Items in Sale</h3>
             <div id="items-container">
                 {% for item in sale_items %}
-                <div class="item-row">
-                    <div style="flex: 1;">
-                        <label style="margin-bottom: 5px;">Select Item:</label>
-                        <select name="item_id" required style="width: 100%; margin: 0;">
-                            <option value="">Select Item</option>
-                            {% for available_item in items %}
-                                <option value="{{ available_item.id }}"
-                                    data-price="{{ available_item.price }}"
-                                    {% if available_item.name == item.item_name %}selected{% endif %}>
-                                    {{ available_item.name }} - ₱{{ "%.2f"|format(available_item.price) }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                <div class="item-edit-row">
+                    <select name="item_id" required>
+                        <option value="">Select Item</option>
+                        {% for available_item in items %}
+                        <option value="{{ available_item.id }}"
+                                data-price="{{ available_item.price }}"
+                                {% if available_item.name == item.item_name %}selected{% endif %}>
+                            {{ available_item.name }} — ₱{{ "%.2f"|format(available_item.price) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="qty-stepper">
+                        <button type="button" onclick="changeQty(this,-1)">−</button>
+                        <input type="number" name="quantity" min="1" value="{{ item.quantity }}" required>
+                        <button type="button" onclick="changeQty(this, 1)">+</button>
                     </div>
-                    <div>
-                        <label style="margin-bottom: 5px;">Quantity:</label>
-                        <input type="number" name="quantity" min="1" value="{{ item.quantity }}" required style="width: 100px; margin: 0;">
-                    </div>
-                    <div style="display: flex; align-items: flex-end;">
-                        <button type="button" class="btn btn-danger btn-small" onclick="removeItem(this)" style="margin: 0;">Remove</button>
-                    </div>
+                    <button type="button" class="remove-btn" onclick="removeItem(this)" title="Remove">✕</button>
                 </div>
                 {% endfor %}
             </div>
 
-            <button type="button" class="btn btn-secondary" onclick="addItem()">+ Add Another Item</button>
+            <button type="button" class="btn btn-secondary" onclick="addItem()"
+                    style="margin-bottom:16px;">+ Add Another Item</button>
 
-            <div style="margin-top: 30px;">
+            <!-- Discount -->
+            <div class="discount-row">
+                <label for="discount">Discount (₱)</label>
+                <input type="number" id="discount" name="discount"
+                       min="0" step="0.01"
+                       value="{{ sale.discount if sale.discount else 0 }}"
+                       placeholder="0.00">
+            </div>
+
+            <div style="margin-top: 24px;">
                 <button type="submit" class="btn">Save Changes</button>
                 <a href="{{ url_for('view_sales') }}" class="btn btn-secondary">Cancel</a>
             </div>
@@ -83,48 +160,43 @@
     </div>
 
     <script>
-        const availableItems = JSON.parse(`{{ items_json | tojson | safe }}`);
+        const availableItems = JSON.parse('{{ items_json | tojson | safe }}');
+
+        function changeQty(btn, delta) {
+            const input = btn.parentElement.querySelector('input[type=number]');
+            let val = parseInt(input.value) || 1;
+            val = Math.max(1, val + delta);
+            input.value = val;
+        }
 
         function addItem() {
             const container = document.getElementById('items-container');
-            const itemRow = document.createElement('div');
-            itemRow.className = 'item-row';
+            const row       = document.createElement('div');
+            row.className   = 'item-edit-row';
 
             let options = '<option value="">Select Item</option>';
             availableItems.forEach(item => {
                 options += `<option value="${item.id}" data-price="${item.price}">
-                                ${item.name} - ₱${item.price.toFixed(2)}
-                            </option>`;
+                    ${item.name} — ₱${item.price.toFixed(2)}</option>`;
             });
 
-            itemRow.innerHTML = `
-                <div style="flex: 1;">
-                    <label style="margin-bottom: 5px;">Select Item:</label>
-                    <select name="item_id" required style="width: 100%; margin: 0;">
-                        ${options}
-                    </select>
+            row.innerHTML = `
+                <select name="item_id" required>${options}</select>
+                <div class="qty-stepper">
+                    <button type="button" onclick="changeQty(this,-1)">−</button>
+                    <input type="number" name="quantity" min="1" value="1" required>
+                    <button type="button" onclick="changeQty(this, 1)">+</button>
                 </div>
-                <div>
-                    <label style="margin-bottom: 5px;">Quantity:</label>
-                    <input type="number" name="quantity" min="1" value="1" required style="width: 100px; margin: 0;">
-                </div>
-                <div style="display: flex; align-items: flex-end;">
-                    <button type="button" class="btn btn-danger btn-small" onclick="removeItem(this)" style="margin: 0;">Remove</button>
-                </div>
-            `;
-
-            container.appendChild(itemRow);
+                <button type="button" class="remove-btn" onclick="removeItem(this)" title="Remove">✕</button>`;
+            container.appendChild(row);
         }
 
-        function removeItem(button) {
-            const itemRow = button.closest('.item-row');
-            itemRow.remove();
+        function removeItem(btn) {
+            btn.closest('.item-edit-row').remove();
         }
 
-        // Prevent form submission if no items
         document.getElementById('editSaleForm').addEventListener('submit', function(e) {
-            const items = document.querySelectorAll('#items-container .item-row');
-            if (items.length === 0) {
+            if (!document.querySelectorAll('#items-container .item-edit-row').length) {
                 e.preventDefault();
                 alert('Please add at least one item to the sale.');
             }
