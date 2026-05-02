@@ -8,199 +8,211 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .qty-stepper {
-            display: flex;
-            align-items: center;
-            border: 1.5px solid var(--border-color);
-            border-radius: 10px;
-            overflow: hidden;
-            width: 130px;
-            background: var(--bg-input, var(--bg-secondary));
+            display:flex; align-items:center;
+            border:1.5px solid var(--border-color); border-radius:10px;
+            overflow:hidden; background:var(--bg-primary); flex-shrink:0;
         }
         .qty-stepper button {
-            all: unset;
-            width: 40px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4rem;
-            font-weight: 700;
-            cursor: pointer;
-            color: var(--text-primary);
-            flex-shrink: 0;
+            all:unset; width:44px; height:48px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.45rem; font-weight:700; cursor:pointer; color:var(--text-primary);
+            user-select:none; -webkit-user-select:none; touch-action:manipulation;
         }
-        .qty-stepper button:active { background: var(--border-color); }
+        .qty-stepper button:active { background:var(--border-color); }
         .qty-stepper input[type=number] {
-            all: unset;
-            width: 50px;
-            text-align: center;
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            border-left: 1.5px solid var(--border-color);
-            border-right: 1.5px solid var(--border-color);
-            height: 44px;
-            -moz-appearance: textfield;
-            appearance: none;
+            all:unset; width:44px; text-align:center;
+            font-size:1rem; font-weight:600; color:var(--text-primary);
+            border-left:1.5px solid var(--border-color);
+            border-right:1.5px solid var(--border-color);
+            height:48px; -moz-appearance:textfield;
         }
         .qty-stepper input[type=number]::-webkit-inner-spin-button,
-        .qty-stepper input[type=number]::-webkit-outer-spin-button { display: none; }
+        .qty-stepper input[type=number]::-webkit-outer-spin-button { display:none; }
 
         .item-edit-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            border: 1.5px solid var(--border-color);
-            border-radius: 12px;
-            margin-bottom: 10px;
-            background: var(--bg-secondary);
-            flex-wrap: wrap;
+            display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+            padding:12px 14px; border:1.5px solid var(--border-color);
+            border-radius:12px; margin-bottom:10px; background:var(--bg-secondary);
+            transition:box-shadow .15s,opacity .15s,border-color .15s;
+            cursor:grab; user-select:none; -webkit-user-select:none;
         }
-        .item-edit-row select { flex: 1; min-width: 200px; margin: 0; }
-        .item-edit-row .remove-btn {
-            all: unset;
-            cursor: pointer;
-            color: var(--accent-danger, #ff4444);
-            font-size: 1.4rem;
-            line-height: 1;
-            padding: 4px 8px;
+        .item-edit-row.dragging  { opacity:.4; box-shadow:0 8px 24px rgba(0,0,0,.2); cursor:grabbing; }
+        .item-edit-row.drag-over { border-color:var(--accent-primary); }
+        .drag-handle {
+            color:var(--text-secondary); font-size:1.2rem;
+            cursor:grab; flex-shrink:0; padding:4px 2px;
+            touch-action:none; user-select:none; -webkit-user-select:none;
         }
-        .discount-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 16px 0;
+        .item-edit-row select { flex:1; min-width:170px; margin:0; }
+        .remove-btn {
+            all:unset; cursor:pointer; color:var(--accent-danger);
+            font-size:1.3rem; padding:4px 8px; line-height:1; flex-shrink:0;
+            touch-action:manipulation;
         }
-        .discount-row label { font-weight: 600; white-space: nowrap; }
-        .discount-row input { max-width: 160px; }
+        .discount-wrap { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .discount-wrap label { font-weight:600; white-space:nowrap; }
+        .discount-wrap input { max-width:150px; }
+
+        @media (max-width:480px) {
+            .item-edit-row { padding:10px; gap:8px; }
+            .qty-stepper button { width:40px; height:44px; }
+            .qty-stepper input[type=number] { width:38px; height:44px; }
+            .item-edit-row select { min-width:130px; }
+        }
     </style>
 </head>
 <body>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="5" fill="currentColor"/>
-            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
-        </svg>
+        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg>
     </button>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
 
     <div class="container">
-        <h1>✏️ Edit Sale #{{ sale.id }}</h1>
-
-        {% if error %}
-        <div class="alert alert-error"><strong>Error:</strong> {{ error }}</div>
-        {% endif %}
+        <h1>Edit Sale #{{ sale.id }}</h1>
+        {% if error %}<div class="alert alert-error"><strong>Error:</strong> {{ error }}</div>{% endif %}
 
         <form method="POST" action="{{ url_for('edit_sale', sale_id=sale.id) }}" id="editSaleForm">
             <label for="customer_name">Customer Name *</label>
-            <input type="text" id="customer_name" name="customer_name"
-                   value="{{ sale.customer_name }}" required>
+            <input type="text" id="customer_name" name="customer_name" value="{{ sale.customer_name }}" required>
 
             <label for="date">Sale Date *</label>
-            <!-- Pre-fill existing date, formatted as YYYY-MM-DD for the date input -->
             <input type="date" id="date" name="date"
                    value="{{ sale.date | string | truncate(10, True, '') }}" required>
 
             <label for="notes">Notes (Optional)</label>
-            <textarea id="notes" name="notes"
-                      placeholder="Add any additional notes...">{{ sale.notes or '' }}</textarea>
+            <textarea id="notes" name="notes" placeholder="Add any additional notes...">{{ sale.notes or '' }}</textarea>
 
             <h3>Items in Sale</h3>
-            <div id="items-container">
+            <div id="itemsContainer">
                 {% for item in sale_items %}
-                <div class="item-edit-row">
+                <div class="item-edit-row" draggable="true">
+                    <span class="drag-handle" title="Hold to drag">⠿</span>
                     <select name="item_id" required>
                         <option value="">Select Item</option>
-                        {% for available_item in items %}
-                        <option value="{{ available_item.id }}"
-                                data-price="{{ available_item.price }}"
-                                {% if available_item.name == item.item_name %}selected{% endif %}>
-                            {{ available_item.name }} — ₱{{ "%.2f"|format(available_item.price) }}
+                        {% for av in items %}
+                        <option value="{{ av.id }}" data-price="{{ av.price }}"
+                                {% if av.name == item.item_name %}selected{% endif %}>
+                            {{ av.name }} — ₱{{ "%.2f"|format(av.price) }}
                         </option>
                         {% endfor %}
                     </select>
                     <div class="qty-stepper">
                         <button type="button" onclick="changeQty(this,-1)">−</button>
                         <input type="number" name="quantity" min="1" value="{{ item.quantity }}" required>
-                        <button type="button" onclick="changeQty(this, 1)">+</button>
+                        <button type="button" onclick="changeQty(this,1)">+</button>
                     </div>
                     <button type="button" class="remove-btn" onclick="removeItem(this)" title="Remove">✕</button>
                 </div>
                 {% endfor %}
             </div>
 
-            <button type="button" class="btn btn-secondary" onclick="addItem()"
-                    style="margin-bottom:16px;">+ Add Another Item</button>
+            <button type="button" class="btn btn-secondary" onclick="addItem()" style="margin-bottom:8px;touch-action:manipulation;">+ Add Another Item</button>
 
-            <!-- Discount -->
-            <div class="discount-row">
+            <div class="discount-wrap">
                 <label for="discount">Discount (₱)</label>
-                <input type="number" id="discount" name="discount"
-                       min="0" step="0.01"
-                       value="{{ sale.discount if sale.discount else 0 }}"
-                       placeholder="0.00">
+                <input type="number" id="discount" name="discount" min="0" step="0.01"
+                       value="{{ sale.discount if sale.discount else 0 }}" placeholder="0.00">
             </div>
 
-            <div style="margin-top: 24px;">
-                <button type="submit" class="btn">Save Changes</button>
+            <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button type="submit" class="btn" id="saveBtn" style="touch-action:manipulation;">Save Changes</button>
                 <a href="{{ url_for('view_sales') }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
 
     <script>
-        const availableItems = JSON.parse('{{ items_json | tojson | safe }}');
+    const availableItems = JSON.parse({{ items_json | tojson | safe }});
 
-        function changeQty(btn, delta) {
-            const input = btn.parentElement.querySelector('input[type=number]');
-            let val = parseInt(input.value) || 1;
-            val = Math.max(1, val + delta);
-            input.value = val;
-        }
+    function changeQty(btn, delta) {
+        const input = btn.parentElement.querySelector('input[type=number]');
+        input.value = Math.max(1, (parseInt(input.value) || 1) + delta);
+    }
 
-        function addItem() {
-            const container = document.getElementById('items-container');
-            const row       = document.createElement('div');
-            row.className   = 'item-edit-row';
-
-            let options = '<option value="">Select Item</option>';
-            availableItems.forEach(item => {
-                options += `<option value="${item.id}" data-price="${item.price}">
-                    ${item.name} — ₱${item.price.toFixed(2)}</option>`;
-            });
-
-            row.innerHTML = `
-                <select name="item_id" required>${options}</select>
-                <div class="qty-stepper">
-                    <button type="button" onclick="changeQty(this,-1)">−</button>
-                    <input type="number" name="quantity" min="1" value="1" required>
-                    <button type="button" onclick="changeQty(this, 1)">+</button>
-                </div>
-                <button type="button" class="remove-btn" onclick="removeItem(this)" title="Remove">✕</button>`;
-            container.appendChild(row);
-        }
-
-        function removeItem(btn) {
-            btn.closest('.item-edit-row').remove();
-        }
-
-        document.getElementById('editSaleForm').addEventListener('submit', function(e) {
-            if (!document.querySelectorAll('#items-container .item-edit-row').length) {
-                e.preventDefault();
-                alert('Please add at least one item to the sale.');
-            }
+    function addItem() {
+        const container = document.getElementById('itemsContainer');
+        const row = document.createElement('div');
+        row.className = 'item-edit-row'; row.draggable = true;
+        let opts = '<option value="">Select Item</option>';
+        availableItems.forEach(i => {
+            opts += `<option value="${i.id}" data-price="${i.price}">${i.name} — ₱${i.price.toFixed(2)}</option>`;
         });
+        row.innerHTML = `
+            <span class="drag-handle" title="Hold to drag">⠿</span>
+            <select name="item_id" required>${opts}</select>
+            <div class="qty-stepper">
+                <button type="button" onclick="changeQty(this,-1)">−</button>
+                <input type="number" name="quantity" min="1" value="1" required>
+                <button type="button" onclick="changeQty(this,1)">+</button>
+            </div>
+            <button type="button" class="remove-btn" onclick="removeItem(this)" title="Remove">✕</button>`;
+        container.appendChild(row);
+        attachDrag(row);
+    }
+
+    function removeItem(btn) { btn.closest('.item-edit-row').remove(); }
+
+    // ── Drag-to-reorder ──────────────────────────────────────────
+    const container = document.getElementById('itemsContainer');
+    let dragSrc = null;
+
+    function attachDrag(row) {
+        row.addEventListener('dragstart', () => { dragSrc = row; setTimeout(() => row.classList.add('dragging'),0); });
+        row.addEventListener('dragend',   () => { row.classList.remove('dragging'); container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over')); dragSrc=null; });
+        row.addEventListener('dragover',  e  => { e.preventDefault(); container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over')); if(row!==dragSrc) row.classList.add('drag-over'); });
+        row.addEventListener('drop',      e  => { e.preventDefault(); if(!dragSrc||row===dragSrc) return; const rows=[...container.querySelectorAll('.item-edit-row')]; if(rows.indexOf(dragSrc)<rows.indexOf(row)) row.after(dragSrc); else row.before(dragSrc); row.classList.remove('drag-over'); });
+    }
+    container.querySelectorAll('.item-edit-row').forEach(attachDrag);
+
+    // Touch drag
+    let touchRow=null, touchClone=null, touchOffY=0;
+    container.addEventListener('touchstart', e => {
+        const handle = e.target.closest('.drag-handle'); if(!handle) return;
+        touchRow = handle.closest('.item-edit-row');
+        const rect = touchRow.getBoundingClientRect();
+        touchOffY  = e.touches[0].clientY - rect.top;
+        touchClone = touchRow.cloneNode(true);
+        Object.assign(touchClone.style, { position:'fixed', left:rect.left+'px', top:rect.top+'px', width:rect.width+'px', opacity:'.85', zIndex:'9999', pointerEvents:'none', borderRadius:'12px', boxShadow:'0 8px 24px rgba(0,0,0,.25)' });
+        document.body.appendChild(touchClone);
+        touchRow.classList.add('dragging');
+        e.preventDefault();
+    }, { passive:false });
+    document.addEventListener('touchmove', e => {
+        if(!touchRow||!touchClone) return;
+        touchClone.style.top = (e.touches[0].clientY - touchOffY)+'px';
+        touchClone.style.display='none';
+        const below = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+        touchClone.style.display='';
+        const target = below ? below.closest('.item-edit-row') : null;
+        container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+        if(target && target!==touchRow) target.classList.add('drag-over');
+        e.preventDefault();
+    }, { passive:false });
+    document.addEventListener('touchend', e => {
+        if(!touchRow) return;
+        touchClone&&touchClone.remove(); touchClone=null;
+        touchRow.classList.remove('dragging');
+        const touch = e.changedTouches[0];
+        const below = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = below ? below.closest('.item-edit-row') : null;
+        container.querySelectorAll('.drag-over').forEach(r=>r.classList.remove('drag-over'));
+        if(target && target!==touchRow) {
+            const rows=[...container.querySelectorAll('.item-edit-row')];
+            if(rows.indexOf(touchRow)<rows.indexOf(target)) target.after(touchRow); else target.before(touchRow);
+        }
+        touchRow=null;
+    });
+
+    // ── Submit guard ─────────────────────────────────────────────
+    let saving = false;
+    document.getElementById('editSaleForm').addEventListener('submit', function(e) {
+        if(!container.querySelectorAll('.item-edit-row').length) { e.preventDefault(); alert('Please add at least one item.'); return; }
+        if(saving) { e.preventDefault(); return; }
+        saving = true;
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true; btn.textContent = 'Saving…';
+    });
     </script>
 </body>
 </html>
