@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Microfauna">
+    <link rel="apple-touch-icon" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/static/logo.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Add Sale - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
@@ -449,25 +457,43 @@
 
     async function captureReceipt(action, saleId, customerName) {
         const el = document.getElementById('receiptContent');
+        const prevMax = el.style.maxHeight;
+        el.style.maxHeight = 'none';
+        el.style.overflow  = 'visible';
         try {
-            const canvas = await html2canvas(el, { backgroundColor:'#ffffff', scale:2 });
+            const canvas = await html2canvas(el, { backgroundColor:'#ffffff', scale:2, useCORS:true, logging:false });
+            el.style.maxHeight = prevMax;
+            el.style.overflow  = 'auto';
+            const filename = `receipt_${saleId}_${(customerName||'').replace(/\s+/g,'_')}.png`;
             if (action === 'download') {
                 const a = document.createElement('a');
-                a.download = `receipt_${saleId}_${(customerName||'').replace(/\s+/g,'_')}.png`;
-                a.href = canvas.toDataURL('image/png'); a.click();
+                a.download = filename;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
             } else {
                 canvas.toBlob(async blob => {
-                    try {
-                        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-                        alert('Copied! Paste in Messenger.');
-                    } catch {
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                        alert('Could not copy — receipt opened in new tab. Long-press to save/copy.');
-                    }
+                    const file = new File([blob], filename, { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try { await navigator.share({ files: [file], title: 'Microfauna Receipt' }); }
+                        catch(e) { if (e.name !== 'AbortError') _openReceiptTab(blob); }
+                    } else if (navigator.clipboard && navigator.clipboard.write) {
+                        try {
+                            await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+                            alert('Receipt copied to clipboard!');
+                        } catch { _openReceiptTab(blob); }
+                    } else { _openReceiptTab(blob); }
                 }, 'image/png');
             }
-        } catch { alert('Could not capture receipt.'); }
+        } catch(e) {
+            el.style.maxHeight = prevMax;
+            el.style.overflow  = 'auto';
+            alert('Could not capture receipt.');
+        }
+    }
+    function _openReceiptTab(blob) {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        alert('Receipt opened in new tab — long-press the image to save or copy it.');
     }
 
     window.addEventListener('click', e => {

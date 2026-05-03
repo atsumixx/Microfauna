@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Microfauna">
+    <link rel="apple-touch-icon" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/static/logo.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Dashboard - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -326,21 +334,22 @@
     </div>
 
     <!-- Receipt Modal -->
-    <div id="receiptModal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width:500px; background:white; color:black;">
-            <div class="modal-header" style="background:white; border-bottom:2px solid black;">
-                <h2 style="color:black; margin:0;">RECEIPT</h2>
-                <span class="close" onclick="closeReceiptModal()" style="color:black; cursor:pointer;">&times;</span>
+    <div id="receiptModal" class="modal" style="display:none; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width:480px; background:white; color:black; overflow:hidden;">
+            <div class="modal-header" style="background:white; border-bottom:2px solid black; padding:14px 18px;">
+                <h2 style="color:black; margin:0; font-size:1rem; letter-spacing:1px;">RECEIPT</h2>
+                <button class="close" onclick="closeReceiptModal()" style="color:black; border:none; background:none; font-size:1.4rem; cursor:pointer; padding:2px 6px;">&times;</button>
             </div>
-            <div class="modal-body" id="receiptContent"
-                 style="background:white; font-family:'Courier New',monospace; padding:30px;"></div>
-            <div style="padding:20px; background:white; border-top:2px solid black; text-align:center; display:flex; gap:10px; justify-content:center;">
-                <button class="btn" onclick="closeReceiptModal()" style="background:black; color:white;">Close</button>
-                <button class="btn btn-secondary" id="downloadReceiptBtn"
-                        style="background:white; color:black; border:2px solid black;">Download Receipt</button>
+            <div id="receiptContent"
+                 style="background:white; font-family:'Courier New',monospace; padding:22px; color:black; overflow-y:auto; max-height:50vh;"></div>
+            <div style="padding:14px 16px; background:white; border-top:2px solid black; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="closeReceiptModal()" style="flex:1; min-width:80px; padding:11px 10px; background:black; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">Close</button>
+                <button id="downloadReceiptPngBtn" style="flex:1; min-width:120px; padding:11px 10px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">Download PNG</button>
+                <button id="shareReceiptBtn" style="flex:1; min-width:80px; padding:11px 10px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">Share</button>
             </div>
         </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
         let charts = {};
@@ -565,60 +574,126 @@
                 .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
         }
 
+        let _currentReceiptSaleId   = null;
+        let _currentReceiptCustomer = null;
+
         async function showReceipt(saleId) {
             try {
                 const res  = await fetch(`/sales/${saleId}/receipt`);
                 const data = await res.json();
                 if (data.error) { alert('Receipt not found.'); return; }
+                _currentReceiptSaleId   = saleId;
+                _currentReceiptCustomer = data.customer_name;
 
                 let itemsHTML = '';
                 data.items.forEach(item => {
                     itemsHTML += `
                         <tr>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;">${escapeHTML(item.name)}</td>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${item.quantity}</td>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.price)}</td>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.subtotal)}</td>
+                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;font-size:12px;">${escapeHTML(item.name)}</td>
+                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:center;font-size:12px;">${item.quantity}</td>
+                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:right;font-size:12px;">${fmtMoney(item.price)}</td>
+                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:right;font-size:12px;">${fmtMoney(item.subtotal)}</td>
                         </tr>`;
                 });
+                const discLine = data.discount > 0
+                    ? `<div style="text-align:right;color:#cc0000;margin-top:5px;font-size:12px;">Discount: -${fmtMoney(data.discount)}</div>` : '';
 
                 document.getElementById('receiptContent').innerHTML = `
-                    <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid black;padding-bottom:15px;">
-                        <h1 style="margin:0;font-size:24px;">MICROFAUNA SALES</h1>
-                        <p style="margin:5px 0;">Sales Receipt</p>
+                    <div style="text-align:center;margin-bottom:16px;border-bottom:2px solid black;padding-bottom:12px;">
+                        <div style="font-size:18px;font-weight:700;letter-spacing:2px;">MICROFAUNA SALES</div>
+                        <div style="font-size:11px;margin-top:3px;">Sales Receipt</div>
                     </div>
-                    <div style="margin-bottom:20px;font-size:14px;">
-                        <p style="margin:5px 0;"><strong>Receipt #:</strong> ${escapeHTML(String(data.sale_id))}</p>
-                        <p style="margin:5px 0;"><strong>Customer:</strong> ${escapeHTML(data.customer_name)}</p>
-                        <p style="margin:5px 0;"><strong>Date:</strong> ${escapeHTML(data.date)}</p>
-                        ${data.notes ? `<p style="margin:5px 0;"><strong>Notes:</strong> ${escapeHTML(data.notes)}</p>` : ''}
+                    <div style="margin-bottom:14px;font-size:12px;line-height:1.8;">
+                        <div><b>Receipt #:</b> ${escapeHTML(String(data.sale_id))}</div>
+                        <div><b>Customer:</b> ${escapeHTML(data.customer_name)}</div>
+                        <div><b>Date:</b> ${escapeHTML(data.date)}</div>
+                        ${data.notes ? `<div><b>Notes:</b> ${escapeHTML(data.notes)}</div>` : ''}
                     </div>
-                    <table style="width:100%;margin:20px 0;font-size:13px;border-collapse:collapse;">
-                        <thead>
-                            <tr style="border-bottom:2px solid black;">
-                                <th style="padding:10px 0;text-align:left;">ITEM</th>
-                                <th style="padding:10px 0;text-align:center;">QTY</th>
-                                <th style="padding:10px 0;text-align:right;">PRICE</th>
-                                <th style="padding:10px 0;text-align:right;">TOTAL</th>
-                            </tr>
-                        </thead>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead><tr style="border-bottom:2px solid black;">
+                            <th style="padding:7px 0;text-align:left;font-size:11px;">ITEM</th>
+                            <th style="padding:7px 0;text-align:center;font-size:11px;">QTY</th>
+                            <th style="padding:7px 0;text-align:right;font-size:11px;">PRICE</th>
+                            <th style="padding:7px 0;text-align:right;font-size:11px;">TOTAL</th>
+                        </tr></thead>
                         <tbody>${itemsHTML}</tbody>
                     </table>
-                    <div style="margin-top:20px;padding-top:15px;border-top:2px solid black;text-align:right;font-size:18px;">
-                        <strong>TOTAL: ${fmtMoney(data.total)}</strong>
+                    <div style="margin-top:14px;padding-top:10px;border-top:2px solid black;">
+                        ${discLine}
+                        <div style="text-align:right;font-size:16px;font-weight:700;margin-top:5px;">TOTAL: ${fmtMoney(data.total)}</div>
                     </div>
-                    <div style="margin-top:30px;text-align:center;font-size:12px;border-top:1px dashed #ccc;padding-top:15px;">
-                        <p>Thank you for your purchase!</p>
-                        <p>Visit us again soon</p>
+                    <div style="margin-top:16px;text-align:center;font-size:10px;border-top:1px dashed #ccc;padding-top:12px;line-height:1.8;">
+                        Thank you for your purchase!<br>Visit us again soon
                     </div>`;
 
-                document.getElementById('downloadReceiptBtn').onclick = () => {
-                    window.location.href = `/sales/${saleId}/receipt/download`;
+                document.getElementById('receiptModal').style.display = 'flex';
+
+                // Download PNG
+                document.getElementById('downloadReceiptPngBtn').onclick = async () => {
+                    await captureReceiptImg('download', saleId, data.customer_name);
                 };
-                document.getElementById('receiptModal').style.display = 'block';
+                // Share (iOS Web Share API)
+                document.getElementById('shareReceiptBtn').onclick = async () => {
+                    await captureReceiptImg('share', saleId, data.customer_name);
+                };
             } catch(e) {
+                console.error(e);
                 alert('Could not load receipt.');
             }
+        }
+
+        async function captureReceiptImg(action, saleId, customerName) {
+            const el = document.getElementById('receiptContent');
+            // Temporarily expand for capture
+            const prevMax = el.style.maxHeight;
+            el.style.maxHeight = 'none';
+            el.style.overflow  = 'visible';
+            try {
+                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
+                el.style.maxHeight = prevMax;
+                el.style.overflow  = 'auto';
+
+                const filename = `receipt_${saleId}_${(customerName||'').replace(/\s+/g,'_')}.png`;
+
+                if (action === 'download') {
+                    const a   = document.createElement('a');
+                    a.download = filename;
+                    a.href     = canvas.toDataURL('image/png');
+                    a.click();
+                } else {
+                    // Share — use Web Share API if available (iOS 15+), else fallback
+                    canvas.toBlob(async blob => {
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({ files: [file], title: 'Microfauna Receipt' });
+                            } catch(e) {
+                                if (e.name !== 'AbortError') openBlobInTab(blob);
+                            }
+                        } else if (navigator.clipboard && navigator.clipboard.write) {
+                            try {
+                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                                alert('Receipt image copied to clipboard!');
+                            } catch(e) {
+                                openBlobInTab(blob);
+                            }
+                        } else {
+                            openBlobInTab(blob);
+                        }
+                    }, 'image/png');
+                }
+            } catch(e) {
+                el.style.maxHeight = prevMax;
+                el.style.overflow  = 'auto';
+                console.error(e);
+                alert('Could not capture receipt image.');
+            }
+        }
+
+        function openBlobInTab(blob) {
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            alert('Receipt opened in new tab — long-press the image to save or copy it.');
         }
 
         function closeReceiptModal() {

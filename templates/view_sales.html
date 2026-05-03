@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Microfauna">
+    <link rel="apple-touch-icon" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/logo.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/static/logo.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>View Sales - Microfauna Sales Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -117,24 +125,19 @@
     </div>
 
     <!-- Receipt Modal -->
-    <div id="receiptModal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width:500px; background:white; color:black;">
-            <div class="modal-header" style="background:white; border-bottom:2px solid black;">
-                <h2 style="color:black; margin:0;">🧾 RECEIPT</h2>
-                <span class="close" onclick="closeReceiptModal()" style="color:black; cursor:pointer;">&times;</span>
+    <div id="receiptModal" class="modal" style="display:none; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width:480px; background:white; color:black; overflow:hidden;">
+            <div class="modal-header" style="background:white; border-bottom:2px solid black; padding:14px 18px;">
+                <h2 style="color:black; margin:0; font-size:1rem; letter-spacing:1px;">RECEIPT</h2>
+                <button class="close" onclick="closeReceiptModal()" style="color:black; border:none; background:none; font-size:1.4rem; cursor:pointer; padding:2px 6px;">&times;</button>
             </div>
             <div id="receiptContent"
-                 style="background:white; font-family:'Courier New',monospace; padding:30px; color:black;"></div>
-            <div style="padding:20px; background:white; border-top:2px solid black;
-                        display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn" onclick="closeReceiptModal()"
-                        style="background:black; color:white;">Close</button>
-                <button class="btn btn-secondary" id="copyReceiptBtn"
-                        style="background:white; color:black; border:2px solid black;">📋 Copy as Image</button>
-                <button class="btn btn-secondary" id="downloadPngBtn"
-                        style="background:white; color:black; border:2px solid black;">⬇ Download PNG</button>
-                <a id="downloadTxtBtn" class="btn btn-secondary"
-                   style="background:white; color:black; border:2px solid black; text-decoration:none;">⬇ Download .txt</a>
+                 style="background:white; font-family:'Courier New',monospace; padding:20px; color:black; overflow-y:auto; max-height:50vh;"></div>
+            <div style="padding:14px 16px; background:white; border-top:2px solid black; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="closeReceiptModal()" style="flex:1; min-width:80px; padding:11px 8px; background:black; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Close</button>
+                <button id="copyReceiptBtn" style="flex:1; min-width:80px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Share</button>
+                <button id="downloadPngBtn" style="flex:1; min-width:100px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Download PNG</button>
+                <a id="downloadTxtBtn" style="flex:1; min-width:100px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem; text-align:center; text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Download .txt</a>
             </div>
         </div>
     </div>
@@ -163,7 +166,7 @@
                 document.getElementById('downloadTxtBtn').href = `/sales/${saleId}/receipt/download`;
                 document.getElementById('downloadPngBtn').onclick = () => captureReceipt('download');
                 document.getElementById('copyReceiptBtn').onclick  = () => captureReceipt('copy');
-                document.getElementById('receiptModal').style.display = 'block';
+                document.getElementById('receiptModal').style.display = 'flex';
             } catch(e) {
                 alert('Could not load receipt.');
             }
@@ -221,28 +224,43 @@
 
         async function captureReceipt(action) {
             const el = document.getElementById('receiptContent');
+            const prevMax = el.style.maxHeight;
+            el.style.maxHeight = 'none';
+            el.style.overflow  = 'visible';
             try {
-                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2 });
+                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
+                el.style.maxHeight = prevMax;
+                el.style.overflow  = 'auto';
+                const filename = `receipt_${currentSaleId}_${(currentCustomerName||'').replace(/\s+/g,'_')}.png`;
                 if (action === 'download') {
-                    const link = document.createElement('a');
-                    link.download = `receipt_${currentSaleId}_${(currentCustomerName||'').replace(/\s+/g,'_')}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
+                    const a = document.createElement('a');
+                    a.download = filename;
+                    a.href = canvas.toDataURL('image/png');
+                    a.click();
                 } else {
                     canvas.toBlob(async blob => {
-                        try {
-                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                            alert('Receipt image copied! You can now paste it in Messenger.');
-                        } catch {
-                            const url = URL.createObjectURL(blob);
-                            window.open(url, '_blank');
-                            alert('Clipboard not supported on this browser. Receipt opened in new tab — long press to copy or save.');
-                        }
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            try { await navigator.share({ files: [file], title: 'Microfauna Receipt' }); }
+                            catch(e) { if (e.name !== 'AbortError') openReceiptTab(blob); }
+                        } else if (navigator.clipboard && navigator.clipboard.write) {
+                            try {
+                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                                alert('Receipt copied to clipboard!');
+                            } catch { openReceiptTab(blob); }
+                        } else { openReceiptTab(blob); }
                     }, 'image/png');
                 }
             } catch(e) {
-                alert('Could not capture receipt image.');
+                el.style.maxHeight = prevMax;
+                el.style.overflow  = 'auto';
+                alert('Could not capture receipt.');
             }
+        }
+        function openReceiptTab(blob) {
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            alert('Receipt opened in new tab — long-press the image to save or copy it.');
         }
 
         function closeReceiptModal() {
