@@ -50,21 +50,21 @@
         <div class="card-grid">
             <div class="stat-card">
                 <h2>Total Revenue</h2>
-                <p class="value">₱{{ "%.2f"|format(revenue) }}</p>
+                <p class="value">{{ revenue | money }}</p>
             </div>
             <div class="stat-card">
                 <h2>Total Expenses</h2>
-                <p class="value" style="color: var(--accent-danger);">₱{{ "%.2f"|format(expenses) }}</p>
+                <p class="value" style="color: var(--accent-danger);">{{ expenses | money }}</p>
             </div>
             {% if net_profit >= 0 %}
             <div class="stat-card net-profit-positive">
                 <h2>Net Profit</h2>
-                <p class="value">₱{{ "%.2f"|format(net_profit) }}</p>
+                <p class="value">{{ net_profit | money }}</p>
             </div>
             {% else %}
             <div class="stat-card net-profit-negative">
                 <h2>Net Profit</h2>
-                <p class="value">₱{{ "%.2f"|format(net_profit) }}</p>
+                <p class="value">{{ net_profit | money }}</p>
             </div>
             {% endif %}
             <div class="stat-card">
@@ -99,8 +99,8 @@
                     {% for sale in recent_sales %}
                     <tr>
                         <td>{{ sale.customer_name }}</td>
-                        <td>{{ sale.date }}</td>
-                        <td style="color: var(--accent-success);">₱{{ "%.2f"|format(sale.total) }}</td>
+                        <td>{{ sale.date | short_date }}</td>
+                        <td style="color: var(--accent-success);">{{ sale.total | money }}</td>
                         <td>
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('recent-{{ sale.id }}')">⋮</button>
@@ -144,8 +144,8 @@
                                 {{ expense.category }}
                             </span>
                         </td>
-                        <td>{{ expense.date }}</td>
-                        <td style="color: var(--accent-danger);">₱{{ "%.2f"|format(expense.amount) }}</td>
+                        <td>{{ expense.date | short_date }}</td>
+                        <td style="color: var(--accent-danger);">{{ expense.amount | money }}</td>
                         <td>
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('expense-{{ expense.id }}')">⋮</button>
@@ -183,7 +183,7 @@
                         <tr>
                             <td>{{ item.item_name }}</td>
                             <td>{{ item.total_qty }}</td>
-                            <td>₱{{ "%.2f"|format(item.total_sales) }}</td>
+                            <td>{{ item.total_sales | money }}</td>
                             <td>
                                 {% if item.item_id %}
                                 <div class="actions-menu">
@@ -230,7 +230,7 @@
                                     {{ category.category }}
                                 </span>
                             </td>
-                            <td style="color: var(--accent-danger);">₱{{ "%.2f"|format(category.total) }}</td>
+                            <td style="color: var(--accent-danger);">{{ category.total | money }}</td>
                             <td>
                                 <div class="actions-menu">
                                     <button class="actions-btn" onclick="toggleDropdown('category-{{ loop.index }}')">⋮</button>
@@ -502,25 +502,25 @@
                         ${data.map(d => `
                         <tr style="border-bottom:1px solid var(--border-color);">
                             <td style="padding:8px 10px;">${d[labelKey]}</td>
-                            <td style="padding:8px 10px; text-align:right; color:var(--accent-success);">₱${parseFloat(d.revenue).toFixed(2)}</td>
+                            <td style="padding:8px 10px; text-align:right; color:var(--accent-success);">${fmtMoney(d.revenue)}</td>
                             <td style="padding:8px 10px; text-align:right;">${d.transactions}</td>
                         </tr>`).join('')}
                     </tbody>
                     <tfoot>
                         <tr style="border-top:2px solid var(--border-color); font-weight:700;">
                             <td style="padding:10px;">TOTAL</td>
-                            <td style="padding:10px; text-align:right; color:var(--accent-success);">₱${totalRev.toFixed(2)}</td>
+                            <td style="padding:10px; text-align:right; color:var(--accent-success);">${fmtMoney(totalRev)}</td>
                             <td style="padding:10px; text-align:right;">${totalTxns}</td>
                         </tr>
                         <tr style="color:var(--text-secondary); font-size:0.85rem;">
                             <td style="padding:6px 10px;">Average per period</td>
-                            <td style="padding:6px 10px; text-align:right;">₱${avgRev.toFixed(2)}</td>
+                            <td style="padding:6px 10px; text-align:right;">${fmtMoney(avgRev)}</td>
                             <td></td>
                         </tr>
                         ${best && best[labelKey] ? `
                         <tr style="color:var(--text-secondary); font-size:0.85rem;">
                             <td style="padding:6px 10px;">Best period</td>
-                            <td style="padding:6px 10px; text-align:right;" colspan="2">${best[labelKey]} — ₱${parseFloat(best.revenue).toFixed(2)}</td>
+                            <td style="padding:6px 10px; text-align:right;" colspan="2">${best[labelKey]} — ${fmtMoney(best.revenue)}</td>
                         </tr>` : ''}
                     </tfoot>
                 </table>`;
@@ -530,6 +530,7 @@
         function textColor()   { return getComputedStyle(document.body).getPropertyValue('--text-primary'); }
         function subColor()    { return getComputedStyle(document.body).getPropertyValue('--text-secondary'); }
         function borderColor() { return getComputedStyle(document.body).getPropertyValue('--border-color'); }
+        function fmtMoney(v)   { return '₱' + parseFloat(v).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
         function chartOptions() {
             return {
@@ -576,8 +577,8 @@
                         <tr>
                             <td style="padding:8px 0;border-bottom:1px dashed #ccc;">${escapeHTML(item.name)}</td>
                             <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${item.quantity}</td>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.price.toFixed(2)}</td>
-                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.subtotal.toFixed(2)}</td>
+                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.price)}</td>
+                            <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.subtotal)}</td>
                         </tr>`;
                 });
 
@@ -604,7 +605,7 @@
                         <tbody>${itemsHTML}</tbody>
                     </table>
                     <div style="margin-top:20px;padding-top:15px;border-top:2px solid black;text-align:right;font-size:18px;">
-                        <strong>TOTAL: ₱${data.total.toFixed(2)}</strong>
+                        <strong>TOTAL: ${fmtMoney(data.total)}</strong>
                     </div>
                     <div style="margin-top:30px;text-align:center;font-size:12px;border-top:1px dashed #ccc;padding-top:15px;">
                         <p>Thank you for your purchase!</p>

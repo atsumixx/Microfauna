@@ -42,6 +42,12 @@
             {% endif %}
         </form>
 
+        {% if request.args.get('saved') %}
+        <div class="alert" style="background:rgba(0,204,119,0.1);border:1px solid var(--accent-primary);color:var(--accent-primary);margin-bottom:16px;">
+            ✅ Sale saved successfully.
+        </div>
+        {% endif %}
+
         {% if sales %}
         <div class="card">
             <table>
@@ -71,19 +77,19 @@
                             </ul>
                         </td>
                         <td style="font-weight:600; color:var(--accent-success);">
-                            ₱{{ "%.2f"|format(sale.total) }}
+                            {{ sale.total | money }}
                         </td>
                         <td>
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
-                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
-                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">View Receipt</a>
-                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">Download (.txt)</a>
+                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">✏️ Edit</a>
+                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">🧾 View Receipt</a>
+                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">⬇️ Download (.txt)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
-                                        <button type="submit" class="delete">Delete</button>
+                                        <button type="submit" class="delete">🗑️ Delete</button>
                                     </form>
                                 </div>
                             </div>
@@ -138,6 +144,8 @@
         let currentSaleId = null;
         let currentCustomerName = null;
 
+        function fmtMoney(v) { return '₱' + parseFloat(v).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
         function escapeHTML(str) {
             return String(str)
                 .replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -168,13 +176,13 @@
                     <tr>
                         <td style="padding:8px 0;border-bottom:1px dashed #ccc;">${escapeHTML(item.name)}</td>
                         <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${item.quantity}</td>
-                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.price.toFixed(2)}</td>
-                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₱${item.subtotal.toFixed(2)}</td>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.price)}</td>
+                        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">${fmtMoney(item.subtotal)}</td>
                     </tr>`;
             });
 
             const discountLine = data.discount > 0
-                ? `<div style="text-align:right;color:#cc0000;margin-top:6px;">Discount: −₱${data.discount.toFixed(2)}</div>`
+                ? `<div style="text-align:right;color:#cc0000;margin-top:6px;">Discount: −${fmtMoney(data.discount)}</div>`
                 : '';
 
             document.getElementById('receiptContent').innerHTML = `
@@ -202,7 +210,7 @@
                 <div style="margin-top:16px;padding-top:12px;border-top:2px solid black;">
                     ${discountLine}
                     <div style="text-align:right;font-size:17px;margin-top:8px;">
-                        <strong>TOTAL: ₱${data.total.toFixed(2)}</strong>
+                        <strong>TOTAL: ${fmtMoney(data.total)}</strong>
                     </div>
                 </div>
                 <div style="margin-top:24px;text-align:center;font-size:11px;border-top:1px dashed #ccc;padding-top:12px;">

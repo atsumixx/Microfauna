@@ -33,7 +33,7 @@
         <div class="card-grid">
             <div class="stat-card">
                 <h2>Total Expenses</h2>
-                <p class="value" style="color: var(--accent-danger);">₱{{ "%.2f"|format(total_expenses) }}</p>
+                <p class="value" style="color: var(--accent-danger);">{{ total_expenses | money }}</p>
             </div>
         </div>
 
@@ -79,17 +79,17 @@
                                     </span>
                                 </td>
                                 <td style="font-weight: 600; color: var(--accent-danger);">
-                                    ₱{{ "%.2f"|format(expense.amount) }}
+                                    {{ expense.amount | money }}
                                 </td>
                                 <td>
                                     <div class="actions-menu">
                                         <button class="actions-btn" onclick="toggleDropdown('dropdown-{{ expense.id }}')">⋮</button>
                                         <div id="dropdown-{{ expense.id }}" class="dropdown-content">
-                                            <a href="{{ url_for('edit_expense', expense_id=expense.id) }}">Edit</a>
+                                            <a href="{{ url_for('edit_expense', expense_id=expense.id) }}">✏️ Edit</a>
                                             <form method="POST" 
                                                   action="{{ url_for('delete_expense', expense_id=expense.id) }}" 
                                                   onsubmit="return confirm('Are you sure you want to delete this expense?');">
-                                                <button type="submit" class="delete">Delete</button>
+                                                <button type="submit" class="delete">🗑️ Delete</button>
                                             </form>
                                         </div>
                                     </div>

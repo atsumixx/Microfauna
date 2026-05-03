@@ -10,11 +10,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # ─────────────────────────────────────────────────────────────────
-# DATABASE
-# On Vercel serverless, connection pools don't survive between
-# invocations. We use a module-level cached connection instead,
-# with autocommit=False and a keep-alive ping before each use.
-# This avoids the ~1-2s SSL handshake on every request.
+# CONNECTION  (cached single connection with ping-on-reuse)
 # ─────────────────────────────────────────────────────────────────
 _conn = None
 
@@ -27,14 +23,24 @@ def _build_uri():
     return uri
 
 def get_db():
-    """Return a live connection, reconnecting if needed."""
     global _conn
     try:
         if _conn is None or _conn.closed:
-            raise Exception('no connection')
-        # Fast ping — if the connection died, this raises
-        _conn.cursor().execute('SELECT 1')
+            raise Exception('reconnect')
+        # If connection is in a failed transaction state, reset it
+        if _conn.status == psycopg2.extensions.STATUS_IN_TRANSACTION:
+            try:
+                _conn.cursor().execute('SELECT 1')
+            except Exception:
+                _conn.rollback()
+        else:
+            _conn.cursor().execute('SELECT 1')
     except Exception:
+        try:
+            if _conn and not _conn.closed:
+                _conn.close()
+        except Exception:
+            pass
         _conn = psycopg2.connect(
             _build_uri(),
             sslmode='require',
@@ -53,7 +59,7 @@ def get_db():
 # ─────────────────────────────────────────────────────────────────
 @app.template_filter('money')
 def money_filter(value):
-    """Format a number as ₱1,234.56"""
+    """₱1,234.56"""
     try:
         return '₱{:,.2f}'.format(float(value))
     except (TypeError, ValueError):
@@ -61,11 +67,10 @@ def money_filter(value):
 
 @app.template_filter('short_date')
 def short_date_filter(value):
-    """Strip the time portion from a datetime/string: 2026-05-02"""
+    """2026-05-02 00:00:00  →  2026-05-02"""
     if value is None:
         return ''
-    s = str(value)
-    return s[:10]  # YYYY-MM-DD
+    return str(value)[:10]
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -82,7 +87,6 @@ def init_db():
                     active BOOLEAN DEFAULT TRUE,
                     sort_order INTEGER DEFAULT 0
                 )''')
-
     c.execute('''CREATE TABLE IF NOT EXISTS sales (
                     id SERIAL PRIMARY KEY,
                     customer_name VARCHAR(255) NOT NULL,
@@ -92,7 +96,6 @@ def init_db():
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )''')
-
     c.execute('''CREATE TABLE IF NOT EXISTS sale_items (
                     id SERIAL PRIMARY KEY,
                     sale_id INTEGER REFERENCES sales(id) ON DELETE CASCADE,
@@ -101,7 +104,6 @@ def init_db():
                     price DECIMAL(10,2),
                     subtotal DECIMAL(10,2)
                 )''')
-
     c.execute('''CREATE TABLE IF NOT EXISTS expenses (
                     id SERIAL PRIMARY KEY,
                     description TEXT NOT NULL,
@@ -112,51 +114,38 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )''')
 
-    # ── Migrations (all safe to re-run) ──────────────────────────
-    c.execute("""
-        DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                           WHERE table_name='sales' AND column_name='discount')
-            THEN ALTER TABLE sales ADD COLUMN discount DECIMAL(10,2) DEFAULT 0; END IF;
-        END $$;
-    """)
-    c.execute("""
-        DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                           WHERE table_name='items' AND column_name='sort_order')
-            THEN ALTER TABLE items ADD COLUMN sort_order INTEGER DEFAULT 0; END IF;
-        END $$;
-    """)
-    c.execute("""
-        DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                           WHERE table_name='items' AND column_name='id'
-                           AND column_default LIKE 'nextval%')
-            THEN
-                CREATE SEQUENCE IF NOT EXISTS items_id_seq;
-                ALTER TABLE items ALTER COLUMN id SET DEFAULT nextval('items_id_seq');
-                PERFORM setval('items_id_seq', COALESCE((SELECT MAX(id) FROM items), 0) + 1);
-            END IF;
-        END $$;
-    """)
+    # Safe migrations
+    c.execute("""DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='sales' AND column_name='discount')
+        THEN ALTER TABLE sales ADD COLUMN discount DECIMAL(10,2) DEFAULT 0; END IF;
+    END $$;""")
+    c.execute("""DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='items' AND column_name='sort_order')
+        THEN ALTER TABLE items ADD COLUMN sort_order INTEGER DEFAULT 0; END IF;
+    END $$;""")
+    c.execute("""DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name='items' AND column_name='id'
+                       AND column_default LIKE 'nextval%')
+        THEN
+            CREATE SEQUENCE IF NOT EXISTS items_id_seq;
+            ALTER TABLE items ALTER COLUMN id SET DEFAULT nextval('items_id_seq');
+            PERFORM setval('items_id_seq', COALESCE((SELECT MAX(id) FROM items),0)+1);
+        END IF;
+    END $$;""")
 
-    # Seed sort_order for items that have 0 (first-time migration)
-    c.execute("UPDATE items SET sort_order = id WHERE sort_order = 0")
+    c.execute("UPDATE items SET sort_order=id WHERE sort_order=0")
 
-    # Seed default items if empty
     c.execute("SELECT COUNT(*) as cnt FROM items")
     if c.fetchone()['cnt'] == 0:
         for i, (name, price) in enumerate([
-            ("White Springtail", 120.00),
-            ("Orange Springtail", 250.00),
-            ("Agnara", 120.00),
-            ("Porcellio Sevilla", 250.00),
-        ], 1):
+            ("White Springtail",120.00),("Orange Springtail",250.00),
+            ("Agnara",120.00),("Porcellio Sevilla",250.00)], 1):
             c.execute("INSERT INTO items (name,price,active,sort_order) VALUES (%s,%s,TRUE,%s)",
-                      (name, price, i))
-
+                      (name,price,i))
     conn.commit()
-
 
 try:
     init_db()
@@ -182,7 +171,7 @@ def get_sale_data(sale_id):
         return None
     c.execute("SELECT * FROM sale_items WHERE sale_id=%s", (sale_id,))
     items = [dict(r) for r in c.fetchall()]
-    discount     = float(sale.get('discount') or 0)
+    discount = float(sale.get('discount') or 0)
     subtotal_sum = sum(float(i['subtotal']) for i in items)
     return {
         'sale_id':       sale['id'],
@@ -192,8 +181,8 @@ def get_sale_data(sale_id):
         'discount':      discount,
         'subtotal':      subtotal_sum,
         'total':         float(sale['total']),
-        'items': [{'name': i['item_name'], 'quantity': i['quantity'],
-                   'price': float(i['price']), 'subtotal': float(i['subtotal'])}
+        'items': [{'name':i['item_name'],'quantity':i['quantity'],
+                   'price':float(i['price']),'subtotal':float(i['subtotal'])}
                   for i in items],
     }
 
@@ -204,7 +193,6 @@ def get_sale_data(sale_id):
 @app.route('/')
 def dashboard():
     c = get_db().cursor()
-
     c.execute("SELECT COALESCE(SUM(total),0) as v FROM sales");             total_revenue     = c.fetchone()['v']
     c.execute("SELECT COUNT(*) as v FROM sales");                           total_transactions= c.fetchone()['v']
     c.execute("SELECT COALESCE(SUM(amount),0) as v FROM expenses");         total_expenses    = c.fetchone()['v']
@@ -212,16 +200,13 @@ def dashboard():
 
     c.execute("SELECT id,customer_name,date,total FROM sales ORDER BY date DESC,id DESC LIMIT 5")
     recent_sales = c.fetchall()
-
     c.execute("SELECT id,description,amount,category,date FROM expenses ORDER BY date DESC,id DESC LIMIT 5")
     recent_expenses = c.fetchall()
-
     c.execute("""SELECT si.item_name, i.id as item_id,
                         SUM(si.quantity) as total_qty, SUM(si.subtotal) as total_sales
                  FROM sale_items si LEFT JOIN items i ON si.item_name=i.name
                  GROUP BY si.item_name,i.id ORDER BY total_qty DESC LIMIT 5""")
     top_items = c.fetchall()
-
     c.execute("""SELECT category, SUM(amount) as total,
                         STRING_AGG(id::text,',') as expense_ids
                  FROM expenses GROUP BY category ORDER BY total DESC LIMIT 5""")
@@ -240,12 +225,11 @@ def dashboard():
 @app.route('/api/charts/monthly-sales')
 def api_monthly_sales():
     c = get_db().cursor()
-    c.execute("""SELECT to_char(date,'YYYY-MM') as month, SUM(total) as revenue, COUNT(*) as transactions
+    c.execute("""SELECT to_char(date,'YYYY-MM') as month,SUM(total) as revenue,COUNT(*) as transactions
                  FROM sales GROUP BY to_char(date,'YYYY-MM') ORDER BY month DESC LIMIT 12""")
     data = [dict(r) for r in c.fetchall()]
     data.reverse()
     return jsonify(data)
-
 
 @app.route('/api/charts/item-sales')
 def api_item_sales():
@@ -253,13 +237,11 @@ def api_item_sales():
     c.execute("SELECT item_name,SUM(quantity) as total_qty,SUM(subtotal) as total_sales FROM sale_items GROUP BY item_name ORDER BY total_sales DESC")
     return jsonify([dict(r) for r in c.fetchall()])
 
-
 @app.route('/api/charts/expense-breakdown')
 def api_expense_breakdown():
     c = get_db().cursor()
     c.execute("SELECT category,SUM(amount) as total FROM expenses GROUP BY category ORDER BY total DESC")
     return jsonify([dict(r) for r in c.fetchall()])
-
 
 @app.route('/api/charts/monthly-comparison')
 def api_monthly_comparison():
@@ -277,7 +259,6 @@ def api_monthly_comparison():
               for m in months]
     return jsonify(result[-12:])
 
-
 @app.route('/api/analytics/daily')
 def api_analytics_daily():
     c = get_db().cursor()
@@ -285,7 +266,6 @@ def api_analytics_daily():
                  FROM sales WHERE date>=NOW()-INTERVAL '30 days'
                  GROUP BY to_char(date,'YYYY-MM-DD') ORDER BY day""")
     return jsonify([dict(r) for r in c.fetchall()])
-
 
 @app.route('/api/analytics/weekly')
 def api_analytics_weekly():
@@ -296,7 +276,6 @@ def api_analytics_weekly():
                  GROUP BY date_trunc('week',date) ORDER BY week_start""")
     return jsonify([dict(r) for r in c.fetchall()])
 
-
 @app.route('/api/analytics/monthly')
 def api_analytics_monthly():
     c = get_db().cursor()
@@ -304,7 +283,6 @@ def api_analytics_monthly():
                  FROM sales WHERE date>=NOW()-INTERVAL '12 months'
                  GROUP BY to_char(date,'YYYY-MM') ORDER BY month""")
     return jsonify([dict(r) for r in c.fetchall()])
-
 
 @app.route('/api/analytics/yearly')
 def api_analytics_yearly():
@@ -342,25 +320,23 @@ def view_receipt(sale_id):
         return jsonify({'error': 'Sale not found'}), 404
     return jsonify(data)
 
-
 @app.route('/sales/<int:sale_id>/receipt/download')
 def download_receipt(sale_id):
     data = get_sale_data(sale_id)
     if not data:
         return "Sale not found", 404
-    lines = ["="*40, "       MICROFAUNA SALES RECEIPT", "="*40,
-             f"Receipt #: {data['sale_id']}", f"Customer : {data['customer_name']}",
+    lines = ["="*40,"       MICROFAUNA SALES RECEIPT","="*40,
+             f"Receipt #: {data['sale_id']}",f"Customer : {data['customer_name']}",
              f"Date     : {data['date']}"]
     if data['notes']:
         lines.append(f"Notes    : {data['notes']}")
-    lines += ["-"*40, f"{'ITEM':<20} {'QTY':>4} {'PRICE':>8} {'TOTAL':>8}", "-"*40]
+    lines += ["-"*40,f"{'ITEM':<20} {'QTY':>4} {'PRICE':>8} {'TOTAL':>8}","-"*40]
     for item in data['items']:
         lines.append(f"{item['name']:<20} {item['quantity']:>4} P{item['price']:>7,.2f} P{item['subtotal']:>7,.2f}")
     lines.append("-"*40)
     if data['discount'] > 0:
         lines.append(f"{'DISCOUNT':>34} P{data['discount']:>7,.2f}")
-    lines += [f"{'TOTAL':>34} P{data['total']:>7,.2f}", "="*40,
-              "    Thank you for your purchase!", "="*40]
+    lines += [f"{'TOTAL':>34} P{data['total']:>7,.2f}","="*40,"    Thank you for your purchase!","="*40]
     resp = make_response("\n".join(lines))
     resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
     resp.headers['Content-Disposition'] = \
@@ -384,20 +360,27 @@ def add_sale():
             item_ids   = request.form.getlist('item_id')
             quantities = request.form.getlist('quantity')
 
+            # Bulk-fetch all needed items in ONE query instead of N queries
+            ids_with_qty = [(int(iid), int(qty)) for iid, qty in zip(item_ids, quantities)
+                            if int(qty) > 0]
+            if not ids_with_qty:
+                return jsonify({'success':False,'error':'Please add at least one item.'}), 400
+
+            needed_ids = [x[0] for x in ids_with_qty]
+            c.execute("SELECT id,name,price FROM items WHERE id=ANY(%s) AND active=TRUE", (needed_ids,))
+            item_map = {r['id']: r for r in c.fetchall()}
+
             subtotal_sum = 0
             entries = []
-            for item_id, qty in zip(item_ids, quantities):
-                qty = int(qty)
-                if qty > 0:
-                    c.execute("SELECT name,price FROM items WHERE id=%s AND active=TRUE", (item_id,))
-                    item = c.fetchone()
-                    if item:
-                        sub = float(item['price']) * qty
-                        subtotal_sum += sub
-                        entries.append((item['name'], qty, float(item['price']), sub))
+            for iid, qty in ids_with_qty:
+                item = item_map.get(iid)
+                if item:
+                    sub = float(item['price']) * qty
+                    subtotal_sum += sub
+                    entries.append((item['name'], qty, float(item['price']), sub))
 
             if not entries:
-                return jsonify({'success':False,'error':'Please add at least one item.'}), 400
+                return jsonify({'success':False,'error':'No valid items found.'}), 400
 
             total = max(0, subtotal_sum - discount)
             c.execute("INSERT INTO sales (customer_name,date,total,discount,notes) VALUES (%s,%s,%s,%s,%s) RETURNING id",
@@ -422,16 +405,39 @@ def add_sale():
 def view_sales():
     c = get_db().cursor()
     search = request.args.get('search','')
-    c.execute("SELECT id,customer_name,date,total,notes FROM sales WHERE customer_name LIKE %s ORDER BY date DESC,id DESC",
-              (f'%{search}%',))
-    sales = c.fetchall()
+
+    # One query for all sales
+    c.execute("""SELECT id,customer_name,date,total,notes
+                 FROM sales WHERE customer_name ILIKE %s
+                 ORDER BY date DESC,id DESC""", (f'%{search}%',))
+    sales_rows = c.fetchall()
+
+    if not sales_rows:
+        return render_template('view_sales.html', sales=[], search=search)
+
+    sale_ids = [s['id'] for s in sales_rows]
+
+    # One query for ALL sale_items instead of N queries
+    c.execute("""SELECT sale_id, item_name as name, quantity, price, subtotal
+                 FROM sale_items WHERE sale_id=ANY(%s)""", (sale_ids,))
+    all_items = c.fetchall()
+
+    # Group items by sale_id
+    items_by_sale = {}
+    for item in all_items:
+        items_by_sale.setdefault(item['sale_id'], []).append(dict(item))
+
     expanded = []
-    for sale in sales:
-        c.execute("SELECT item_name as name,quantity,price,subtotal FROM sale_items WHERE sale_id=%s", (sale['id'],))
-        expanded.append({'id':sale['id'],'customer':sale['customer_name'],
-                         'date':str(sale['date'])[:10],
-                         'total':sale['total'],'notes':sale['notes'],
-                         'items':[dict(i) for i in c.fetchall()]})
+    for sale in sales_rows:
+        expanded.append({
+            'id':       sale['id'],
+            'customer': sale['customer_name'],
+            'date':     str(sale['date'])[:10],
+            'total':    sale['total'],
+            'notes':    sale['notes'],
+            'items':    items_by_sale.get(sale['id'], []),
+        })
+
     return render_template('view_sales.html', sales=expanded, search=search)
 
 
@@ -466,21 +472,33 @@ def edit_sale(sale_id):
             discount   = float(request.form.get('discount',0) or 0)
             item_ids   = request.form.getlist('item_id')
             quantities = request.form.getlist('quantity')
-            subtotal_sum = 0
-            updated = []
-            for item_id, qty in zip(item_ids, quantities):
-                qty = int(qty)
-                if qty > 0:
-                    c.execute("SELECT name,price FROM items WHERE id=%s", (item_id,))
-                    item = c.fetchone()
-                    if item:
-                        sub = float(item['price']) * qty
-                        subtotal_sum += sub
-                        updated.append((item['name'],qty,float(item['price']),sub))
-            if not updated:
+
+            # Bulk-fetch items in ONE query
+            ids_with_qty = [(int(iid), int(qty)) for iid, qty in zip(item_ids, quantities)
+                            if int(qty) > 0]
+            if not ids_with_qty:
                 return render_template('edit_sale.html', sale=sale, sale_items=sale_items,
                                        items=items, items_json=items_json,
                                        error="Please add at least one item.")
+
+            needed_ids = [x[0] for x in ids_with_qty]
+            c.execute("SELECT id,name,price FROM items WHERE id=ANY(%s)", (needed_ids,))
+            item_map = {r['id']: r for r in c.fetchall()}
+
+            subtotal_sum = 0
+            updated = []
+            for iid, qty in ids_with_qty:
+                item = item_map.get(iid)
+                if item:
+                    sub = float(item['price']) * qty
+                    subtotal_sum += sub
+                    updated.append((item['name'],qty,float(item['price']),sub))
+
+            if not updated:
+                return render_template('edit_sale.html', sale=sale, sale_items=sale_items,
+                                       items=items, items_json=items_json,
+                                       error="No valid items found.")
+
             total = max(0, subtotal_sum - discount)
             c.execute("UPDATE sales SET customer_name=%s,date=%s,total=%s,discount=%s,notes=%s WHERE id=%s",
                       (customer,date,total,discount,notes,sale_id))
@@ -488,7 +506,7 @@ def edit_sale(sale_id):
             c.executemany("INSERT INTO sale_items (sale_id,item_name,quantity,price,subtotal) VALUES (%s,%s,%s,%s,%s)",
                           [(sale_id,u[0],u[1],u[2],u[3]) for u in updated])
             conn.commit()
-            return redirect(url_for('view_sales'))
+            return redirect(url_for('view_sales') + '?saved=1')
         except Exception as e:
             conn.rollback()
             return render_template('edit_sale.html', sale=sale, sale_items=sale_items,
@@ -528,21 +546,35 @@ def manage_items():
 
 @app.route('/items/add', methods=['POST'])
 def add_item():
-    conn = get_db()
-    c = conn.cursor()
+    error = None
     try:
         name  = request.form['name'].strip()
         price = float(request.form['price'])
-        # Get the next sort_order value
-        c.execute("SELECT MAX(sort_order) as mx FROM items")
-        row = c.fetchone()
-        next_order = (row['mx'] or 0) + 1
+        if not name:
+            raise ValueError("Item name cannot be empty.")
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT COALESCE(MAX(sort_order),0)+1 as next_order FROM items")
+        next_order = c.fetchone()['next_order']
         c.execute("INSERT INTO items (name,price,active,sort_order) VALUES (%s,%s,TRUE,%s)",
                   (name, price, next_order))
         conn.commit()
     except Exception as e:
-        conn.rollback()
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        error = str(e)
         print(f"Error adding item: {e}")
+    if error:
+        try:
+            conn2 = get_db()
+            c2 = conn2.cursor()
+            c2.execute("SELECT * FROM items ORDER BY sort_order ASC, id ASC")
+            items = [dict(i) for i in c2.fetchall()]
+        except Exception:
+            items = []
+        return render_template('manage_items.html', items=items, add_error=error)
     return redirect(url_for('manage_items'))
 
 
@@ -597,12 +629,14 @@ def delete_item(item_id):
 def view_expenses():
     c = get_db().cursor()
     search = request.args.get('search','')
-    c.execute("SELECT id,description,amount,category,date,notes FROM expenses WHERE description LIKE %s OR category LIKE %s ORDER BY date DESC,id DESC",
-              (f'%{search}%',f'%{search}%'))
+    c.execute("""SELECT id,description,amount,category,date,notes FROM expenses
+                 WHERE description ILIKE %s OR category ILIKE %s
+                 ORDER BY date DESC,id DESC""", (f'%{search}%',f'%{search}%'))
     expenses = [dict(e) for e in c.fetchall()]
     c.execute("SELECT COALESCE(SUM(amount),0) as v FROM expenses")
     total_expenses = c.fetchone()['v']
-    return render_template('view_expenses.html', expenses=expenses, search=search, total_expenses=total_expenses)
+    return render_template('view_expenses.html', expenses=expenses,
+                           search=search, total_expenses=total_expenses)
 
 
 @app.route('/expenses/add', methods=['GET', 'POST'])

@@ -32,6 +32,11 @@
         <!-- Add New Item Form -->
         <div class="card">
             <h2>Add New Item</h2>
+            {% if add_error %}
+            <div class="alert alert-error" style="margin-bottom:15px;">
+                <strong>Error:</strong> {{ add_error }}
+            </div>
+            {% endif %}
             <form method="POST" action="{{ url_for('add_item') }}">
                 <label for="new_name">Item Name *</label>
                 <input type="text" id="new_name" name="name" required placeholder="e.g., Blue Springtail">
