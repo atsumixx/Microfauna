@@ -193,9 +193,17 @@ def get_sale_data(sale_id):
 @app.route('/')
 def dashboard():
     c = get_db().cursor()
-    c.execute("SELECT COALESCE(SUM(total),0) as v FROM sales");             total_revenue     = c.fetchone()['v']
-    c.execute("SELECT COUNT(*) as v FROM sales");                           total_transactions= c.fetchone()['v']
-    c.execute("SELECT COALESCE(SUM(amount),0) as v FROM expenses");         total_expenses    = c.fetchone()['v']
+    # Combined stats in one query for speed
+    c.execute("""
+        SELECT
+            (SELECT COALESCE(SUM(total),0)  FROM sales)    AS revenue,
+            (SELECT COUNT(*)                FROM sales)    AS txn_count,
+            (SELECT COALESCE(SUM(amount),0) FROM expenses) AS expenses
+    """)
+    stats = c.fetchone()
+    total_revenue      = stats['revenue']
+    total_transactions = stats['txn_count']
+    total_expenses     = stats['expenses']
     net_profit = total_revenue - total_expenses
 
     c.execute("SELECT id,customer_name,date,total FROM sales ORDER BY date DESC,id DESC LIMIT 5")
@@ -290,6 +298,13 @@ def api_analytics_yearly():
     c.execute("SELECT to_char(date,'YYYY') as year,SUM(total) as revenue,COUNT(*) as transactions FROM sales GROUP BY to_char(date,'YYYY') ORDER BY year")
     return jsonify([dict(r) for r in c.fetchall()])
 
+
+# ─────────────────────────────────────────────────────────────────
+# WARMUP — keeps Vercel function warm, called on page load
+# ─────────────────────────────────────────────────────────────────
+@app.route('/ping')
+def ping():
+    return 'ok', 200
 
 # ─────────────────────────────────────────────────────────────────
 # ITEMS — REORDER

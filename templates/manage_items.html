@@ -16,6 +16,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Loading screen -->
+    <div id="app-loader">
+        <img src="/static/logo.png" alt="Microfauna" class="loader-logo">
+        <div class="loader-name">MICROFAUNA</div>
+        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+    </div>
+    <script>
+        (function(){ var t=localStorage.getItem('theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();
+        window.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ var l=document.getElementById('app-loader'); if(l)l.classList.add('hidden'); },500); });
+    </script>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
         <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="5" fill="currentColor"/>

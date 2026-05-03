@@ -16,6 +16,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Loading screen -->
+    <div id="app-loader">
+        <img src="/static/logo.png" alt="Microfauna" class="loader-logo">
+        <div class="loader-name">MICROFAUNA</div>
+        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+    </div>
+    <script>
+        (function(){ var t=localStorage.getItem('theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();
+        window.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ var l=document.getElementById('app-loader'); if(l)l.classList.add('hidden'); },500); });
+    </script>
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
 
     <div class="container">
@@ -91,13 +101,13 @@
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
-                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">✏️ Edit</a>
-                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">🧾 View Receipt</a>
-                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">⬇️ Download (.txt)</a>
+                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
+                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
+                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">Download (.png)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
-                                        <button type="submit" class="delete">🗑️ Delete</button>
+                                        <button type="submit" class="delete">Delete</button>
                                     </form>
                                 </div>
                             </div>
@@ -125,19 +135,19 @@
     </div>
 
     <!-- Receipt Modal -->
-    <div id="receiptModal" class="modal" style="display:none; align-items:center; justify-content:center;">
-        <div class="modal-content" style="max-width:480px; background:white; color:black; overflow:hidden;">
-            <div class="modal-header" style="background:white; border-bottom:2px solid black; padding:14px 18px;">
-                <h2 style="color:black; margin:0; font-size:1rem; letter-spacing:1px;">RECEIPT</h2>
-                <button class="close" onclick="closeReceiptModal()" style="color:black; border:none; background:none; font-size:1.4rem; cursor:pointer; padding:2px 6px;">&times;</button>
+    <!-- ══ Receipt Modal ══════════════════════════════════════════ -->
+    <div id="receiptModal" class="modal modal-receipt-overlay" style="display:none;">
+        <div class="receipt-modal-wrap">
+            <div class="r-head">
+                <h2>RECEIPT</h2>
+                <button onclick="closeReceiptModal()" style="all:unset;cursor:pointer;color:black;font-size:1.5rem;line-height:1;padding:2px 6px;touch-action:manipulation;">&times;</button>
             </div>
-            <div id="receiptContent"
-                 style="background:white; font-family:'Courier New',monospace; padding:20px; color:black; overflow-y:auto; max-height:50vh;"></div>
-            <div style="padding:14px 16px; background:white; border-top:2px solid black; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeReceiptModal()" style="flex:1; min-width:80px; padding:11px 8px; background:black; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Close</button>
-                <button id="copyReceiptBtn" style="flex:1; min-width:80px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Share</button>
-                <button id="downloadPngBtn" style="flex:1; min-width:100px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem;">Download PNG</button>
-                <a id="downloadTxtBtn" style="flex:1; min-width:100px; padding:11px 8px; background:white; color:black; border:2px solid black; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.88rem; text-align:center; text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Download .txt</a>
+            <div id="receiptContent" class="r-body"></div>
+            <div class="r-foot">
+                <button class="r-btn dark" onclick="closeReceiptModal()">Close</button>
+                <button class="r-btn" id="downloadPngBtn">Save PNG</button>
+                <button class="r-btn" id="copyReceiptBtn">Share / Copy</button>
+                <a id="downloadTxtBtn" class="r-btn" style="text-decoration:none; text-align:center;">Download .txt</a>
             </div>
         </div>
     </div>

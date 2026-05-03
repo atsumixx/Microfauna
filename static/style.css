@@ -555,3 +555,177 @@ html {
     }
     .item-management-row .btn-small { font-size: 0.8rem !important; padding: 9px 4px !important; }
 }
+
+/* ─────────────────────────────────────────────────────
+   DASHBOARD HEADER — logo left, buttons right, no overlap
+   ───────────────────────────────────────────────────── */
+.dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 12px;
+}
+.dash-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+/* Override: on dashboard the theme-toggle is inline, NOT fixed */
+.dash-header .theme-toggle {
+    position: static !important;
+    box-shadow: none;
+    width: 42px;
+    height: 42px;
+}
+.dash-header .chart-icon-btn {
+    width: 42px;
+    height: 42px;
+}
+@media (max-width: 767px) {
+    .dash-header { margin-bottom: 16px; }
+    .dash-header .logo-text { font-size: 0.95rem !important; }
+    .dash-header .logo img  { width: 32px !important; height: 32px !important; border-radius: 8px; }
+    .dash-header .theme-toggle,
+    .dash-header .chart-icon-btn { width: 38px; height: 38px; }
+    .dash-header-actions { gap: 8px; }
+}
+
+/* ─────────────────────────────────────────────────────
+   LOADING SCREEN
+   ───────────────────────────────────────────────────── */
+#app-loader {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-primary);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+#app-loader.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.loader-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    object-fit: cover;
+    animation: loader-pulse 1.4s ease-in-out infinite;
+}
+.loader-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+}
+.loader-bar {
+    width: 160px;
+    height: 3px;
+    background: var(--border-color);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.loader-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent-primary);
+    border-radius: 99px;
+    animation: loader-fill 1.2s ease-out forwards;
+}
+@keyframes loader-pulse {
+    0%, 100% { transform: scale(1);    opacity: 1; }
+    50%       { transform: scale(1.06); opacity: 0.85; }
+}
+@keyframes loader-fill {
+    0%   { width: 0%; }
+    60%  { width: 75%; }
+    100% { width: 100%; }
+}
+
+/* ─────────────────────────────────────────────────────
+   RECEIPT MODAL — proper mobile bottom sheet
+   ───────────────────────────────────────────────────── */
+.receipt-modal-wrap {
+    max-width: 480px;
+    background: white;
+    color: black;
+    overflow: hidden;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 88vh;
+    width: 100%;
+    margin: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+@media (max-width: 767px) {
+    .modal-receipt-overlay {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+    .receipt-modal-wrap {
+        border-radius: 20px 20px 0 0;
+        max-height: 90vh;
+        margin: 0;
+    }
+}
+.receipt-modal-wrap .r-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 2px solid black;
+    background: white;
+    flex-shrink: 0;
+}
+.receipt-modal-wrap .r-head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    color: black;
+    font-family: 'Courier New', monospace;
+}
+.receipt-modal-wrap .r-body {
+    flex: 1;
+    overflow-y: auto;
+    background: white;
+    font-family: 'Courier New', monospace;
+    padding: 20px;
+    color: black;
+    -webkit-overflow-scrolling: touch;
+}
+.receipt-modal-wrap .r-foot {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    border-top: 2px solid black;
+    background: white;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.r-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 12px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border: 2px solid black;
+    background: white;
+    color: black;
+    text-align: center;
+    transition: background 0.15s;
+    touch-action: manipulation;
+    white-space: nowrap;
+}
+.r-btn:active { background: #f0f0f0; }
+.r-btn.dark   { background: black; color: white; border-color: black; }
+.r-btn.dark:active { background: #333; }
