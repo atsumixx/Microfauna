@@ -611,53 +611,59 @@
                 let itemsHTML = '';
                 data.items.forEach(item => {
                     itemsHTML += `
-                        <tr>
-                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;font-size:12px;">${escapeHTML(item.name)}</td>
-                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:center;font-size:12px;">${item.quantity}</td>
-                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:right;font-size:12px;">${fmtMoney(item.price)}</td>
-                            <td style="padding:7px 0;border-bottom:1px dashed #ccc;text-align:right;font-size:12px;">${fmtMoney(item.subtotal)}</td>
+                        <tr style="background:white;">
+                            <td style="padding:8px 6px;border-bottom:1px dashed #ccc;color:black;font-size:12px;">${escapeHTML(item.name)}</td>
+                            <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:center;color:black;font-size:12px;">${item.quantity}</td>
+                            <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:right;color:black;font-size:12px;">${fmtMoney(item.price)}</td>
+                            <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:right;color:black;font-size:12px;font-weight:600;">${fmtMoney(item.subtotal)}</td>
                         </tr>`;
                 });
                 const discLine = data.discount > 0
                     ? `<div style="text-align:right;color:#cc0000;margin-top:5px;font-size:12px;">Discount: -${fmtMoney(data.discount)}</div>` : '';
 
+                // Explicit inline black/white on every element — no CSS var bleed in html2canvas
                 document.getElementById('receiptContent').innerHTML = `
-                    <div style="text-align:center;margin-bottom:16px;border-bottom:2px solid black;padding-bottom:12px;">
-                        <div style="font-size:18px;font-weight:700;letter-spacing:2px;">MICROFAUNA SALES</div>
-                        <div style="font-size:11px;margin-top:3px;">Sales Receipt</div>
+                    <div style="background:white;color:black;font-family:'Courier New',monospace;">
+                    <div style="text-align:center;margin-bottom:18px;border-bottom:2px solid black;padding-bottom:14px;">
+                        <div style="font-size:20px;font-weight:700;letter-spacing:2px;color:black;">MICROFAUNA SALES</div>
+                        <div style="font-size:12px;margin-top:4px;color:black;">Sales Receipt</div>
                     </div>
-                    <div style="margin-bottom:14px;font-size:12px;line-height:1.8;">
-                        <div><b>Receipt #:</b> ${escapeHTML(String(data.sale_id))}</div>
-                        <div><b>Customer:</b> ${escapeHTML(data.customer_name)}</div>
-                        <div><b>Date:</b> ${escapeHTML(data.date)}</div>
-                        ${data.notes ? `<div><b>Notes:</b> ${escapeHTML(data.notes)}</div>` : ''}
+                    <div style="margin-bottom:14px;font-size:13px;color:black;line-height:1.9;">
+                        <div style="color:black;"><b style="color:black;">Receipt #:</b> ${escapeHTML(String(data.sale_id))}</div>
+                        <div style="color:black;"><b style="color:black;">Customer:</b> ${escapeHTML(data.customer_name)}</div>
+                        <div style="color:black;"><b style="color:black;">Date:</b> ${escapeHTML(data.date)}</div>
+                        ${data.notes ? `<div style="color:black;"><b style="color:black;">Notes:</b> ${escapeHTML(data.notes)}</div>` : ''}
                     </div>
-                    <table style="width:100%;border-collapse:collapse;">
-                        <thead><tr style="border-bottom:2px solid black;">
-                            <th style="padding:7px 0;text-align:left;font-size:11px;">ITEM</th>
-                            <th style="padding:7px 0;text-align:center;font-size:11px;">QTY</th>
-                            <th style="padding:7px 0;text-align:right;font-size:11px;">PRICE</th>
-                            <th style="padding:7px 0;text-align:right;font-size:11px;">TOTAL</th>
+                    <table style="width:100%;border-collapse:collapse;background:white;color:black;">
+                        <thead><tr style="background:black;">
+                            <th style="padding:8px 6px;text-align:left;color:white;font-size:11px;">ITEM</th>
+                            <th style="padding:8px 6px;text-align:center;color:white;font-size:11px;">QTY</th>
+                            <th style="padding:8px 6px;text-align:right;color:white;font-size:11px;">PRICE</th>
+                            <th style="padding:8px 6px;text-align:right;color:white;font-size:11px;">TOTAL</th>
                         </tr></thead>
                         <tbody>${itemsHTML}</tbody>
                     </table>
-                    <div style="margin-top:14px;padding-top:10px;border-top:2px solid black;">
+                    <div style="margin-top:14px;padding-top:10px;border-top:2px solid black;background:white;">
                         ${discLine}
-                        <div style="text-align:right;font-size:16px;font-weight:700;margin-top:5px;">TOTAL: ${fmtMoney(data.total)}</div>
+                        <div style="text-align:right;font-size:16px;font-weight:700;color:black;margin-top:6px;">
+                            TOTAL: ${fmtMoney(data.total)}
+                        </div>
                     </div>
-                    <div style="margin-top:16px;text-align:center;font-size:10px;border-top:1px dashed #ccc;padding-top:12px;line-height:1.8;">
-                        Thank you for your purchase!<br>Visit us again soon
+                    <div style="margin-top:20px;text-align:center;font-size:11px;border-top:1px dashed #ccc;padding-top:12px;color:black;line-height:1.9;">
+                        <div style="color:black;">Thank you for your purchase!</div>
+                        <div style="color:black;">Visit us again soon</div>
+                    </div>
                     </div>`;
 
                 document.getElementById('receiptModal').style.display = 'flex';
 
                 // Download PNG
                 document.getElementById('downloadReceiptPngBtn').onclick = async () => {
-                    await captureReceiptImg('download', saleId, data.customer_name);
+                    await captureReceiptPng('download', saleId, data.customer_name);
                 };
                 // Share (iOS Web Share API)
                 document.getElementById('shareReceiptBtn').onclick = async () => {
-                    await captureReceiptImg('share', saleId, data.customer_name);
+                    await captureReceiptPng('share', saleId, data.customer_name);
                 };
             } catch(e) {
                 console.error(e);
@@ -665,58 +671,199 @@
             }
         }
 
-        async function captureReceiptImg(action, saleId, customerName) {
+/* ═══════════════════════════════════════════════════════════
+           RECEIPT CAPTURE — works on iOS Safari + desktop Chrome/FF
+           iOS: navigator.share() → native share sheet → Save Image to Photos
+           Desktop: anchor.download → saves PNG directly
+           ══════════════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════════════
+           RECEIPT CAPTURE — renders PNG into an in-page image modal.
+           No new tabs. Works in standalone PWA (no Safari chrome).
+           - "Share" → iOS native share sheet → Messenger / Save to Photos
+           - "Download" → saves PNG (desktop) or triggers share sheet (iOS)
+           - "Close" → back to receipt
+           ══════════════════════════════════════════════════════════ */
+        async function captureReceiptPng(action, saleId, customerName) {
             const el = document.getElementById('receiptContent');
-            // Temporarily expand for capture
-            const prevMax = el.style.maxHeight;
+
+            // Show a brief loading indicator on the button that was pressed
+            const activeBtn = document.activeElement;
+            const origTxt   = activeBtn ? activeBtn.textContent : '';
+            if (activeBtn && activeBtn.classList.contains('r-btn')) {
+                activeBtn.textContent = 'Generating…';
+                activeBtn.disabled    = true;
+            }
+
+            // Expand the receipt element to full height before capture
+            const saved = { maxH: el.style.maxHeight, overflow: el.style.overflow };
             el.style.maxHeight = 'none';
             el.style.overflow  = 'visible';
+
+            let canvas;
             try {
-                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
-                el.style.maxHeight = prevMax;
-                el.style.overflow  = 'auto';
+                canvas = await html2canvas(el, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    onclone: function(doc) {
+                        // Strip dark theme so html2canvas sees white/black only
+                        doc.documentElement.removeAttribute('data-theme');
+                        var rc = doc.getElementById('receiptContent');
+                        if (rc) {
+                            rc.style.maxHeight  = 'none';
+                            rc.style.overflow   = 'visible';
+                            rc.style.background = '#ffffff';
+                            rc.style.color      = '#000000';
+                        }
+                    }
+                });
+            } catch(err) {
+                console.error('html2canvas error:', err);
+                el.style.maxHeight = saved.maxH;
+                el.style.overflow  = saved.overflow;
+                if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
+                alert('Could not capture receipt image. Please try again.');
+                return;
+            }
 
-                const filename = `receipt_${saleId}_${(customerName||'').replace(/\s+/g,'_')}.png`;
+            // Restore scroll clip
+            el.style.maxHeight = saved.maxH;
+            el.style.overflow  = saved.overflow;
+            if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
 
-                if (action === 'download') {
-                    const a   = document.createElement('a');
+            const dataUrl  = canvas.toDataURL('image/png');
+            const filename = 'receipt_' + saleId + '_' +
+                             (customerName || '').replace(/\s+/g, '_') + '.png';
+            const isIOS    = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+            if (action === 'share') {
+                // Try native share sheet first (iOS + Android + some desktop)
+                canvas.toBlob(async function(blob) {
+                    const file = new File([blob], filename, { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({ files: [file], title: 'Microfauna Receipt' });
+                            return;
+                        } catch(e) {
+                            if (e.name === 'AbortError') return; // user cancelled — do nothing
+                        }
+                    }
+                    // Desktop: try clipboard
+                    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                        try {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            alert('Receipt image copied to clipboard! Paste it in any chat.');
+                            return;
+                        } catch(e) { /* fall through to preview modal */ }
+                    }
+                    // Fallback: show image preview modal so user can screenshot/long-press
+                    showImagePreviewModal(dataUrl, filename, blob);
+                }, 'image/png');
+
+            } else {
+                // Download action
+                if (!isIOS) {
+                    // Desktop: anchor download — goes straight to Downloads folder
+                    var a = document.createElement('a');
                     a.download = filename;
-                    a.href     = canvas.toDataURL('image/png');
+                    a.href     = dataUrl;
+                    document.body.appendChild(a);
                     a.click();
+                    document.body.removeChild(a);
                 } else {
-                    // Share — use Web Share API if available (iOS 15+), else fallback
-                    canvas.toBlob(async blob => {
+                    // iOS: anchor download doesn't work for data URIs in standalone PWA
+                    // Try share sheet (user can "Save Image" → Photos gallery)
+                    canvas.toBlob(async function(blob) {
                         const file = new File([blob], filename, { type: 'image/png' });
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
                             try {
                                 await navigator.share({ files: [file], title: 'Microfauna Receipt' });
+                                return;
                             } catch(e) {
-                                if (e.name !== 'AbortError') openBlobInTab(blob);
+                                if (e.name === 'AbortError') return;
                             }
-                        } else if (navigator.clipboard && navigator.clipboard.write) {
-                            try {
-                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                                alert('Receipt image copied to clipboard!');
-                            } catch(e) {
-                                openBlobInTab(blob);
-                            }
-                        } else {
-                            openBlobInTab(blob);
                         }
+                        // Last resort: show in-page preview
+                        showImagePreviewModal(dataUrl, filename, blob);
                     }, 'image/png');
                 }
-            } catch(e) {
-                el.style.maxHeight = prevMax;
-                el.style.overflow  = 'auto';
-                console.error(e);
-                alert('Could not capture receipt image.');
             }
         }
 
-        function openBlobInTab(blob) {
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            alert('Receipt opened in new tab — long-press the image to save or copy it.');
+        /* Shows the captured PNG inside a full-screen in-page modal.
+           User can: long-press to Save/Copy (iOS), screenshot, or
+           tap "Share" for the native share sheet. No new tabs ever. */
+        function showImagePreviewModal(dataUrl, filename, blob) {
+            var existing = document.getElementById('imgPreviewModal');
+            if (existing) existing.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'imgPreviewModal';
+            overlay.style.cssText = [
+                'position:fixed','inset:0','z-index:9999',
+                'background:rgba(0,0,0,0.92)',
+                'display:flex','flex-direction:column',
+                'align-items:center','justify-content:center',
+                'padding:16px','gap:14px',
+                'backdrop-filter:blur(6px)',
+                '-webkit-backdrop-filter:blur(6px)'
+            ].join(';');
+
+            var img = document.createElement('img');
+            img.src = dataUrl;
+            img.style.cssText = [
+                'max-width:100%',
+                'max-height:calc(100vh - 140px)',
+                'border-radius:10px',
+                'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
+                'object-fit:contain'
+            ].join(';');
+            img.alt = 'Receipt';
+
+            var hint = document.createElement('p');
+            hint.textContent = 'Long-press the image to Copy or Save to Photos';
+            hint.style.cssText = 'color:rgba(255,255,255,0.7);font-size:13px;font-family:-apple-system,sans-serif;margin:0;text-align:center;';
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%;max-width:360px;';
+
+            // Share button (native share sheet)
+            var shareBtn = document.createElement('button');
+            shareBtn.textContent = 'Share';
+            shareBtn.style.cssText = 'flex:1;min-width:80px;padding:13px 10px;background:#00cc77;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            shareBtn.onclick = async function() {
+                if (blob && navigator.canShare) {
+                    var file = new File([blob], filename, { type: 'image/png' });
+                    if (navigator.canShare({ files: [file] })) {
+                        try { await navigator.share({ files: [file], title: 'Microfauna Receipt' }); return; }
+                        catch(e) { if (e.name === 'AbortError') return; }
+                    }
+                }
+                // Clipboard fallback
+                if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write && blob) {
+                    try {
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                        alert('Copied! Paste in Messenger or any chat.');
+                    } catch(e) { alert('Share not available on this browser.'); }
+                }
+            };
+
+            // Close button
+            var closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.cssText = 'flex:1;min-width:80px;padding:13px 10px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            closeBtn.onclick = function() { overlay.remove(); };
+
+            // Close on backdrop tap
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+            btnRow.appendChild(shareBtn);
+            btnRow.appendChild(closeBtn);
+            overlay.appendChild(img);
+            overlay.appendChild(hint);
+            overlay.appendChild(btnRow);
+            document.body.appendChild(overlay);
         }
 
         function closeReceiptModal() {
