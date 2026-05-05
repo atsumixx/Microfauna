@@ -677,59 +677,97 @@
            Desktop: anchor.download → saves PNG directly
            ══════════════════════════════════════════════════════════ */
         /* ═══════════════════════════════════════════════════════════
-           RECEIPT CAPTURE — renders PNG into an in-page image modal.
-           No new tabs. Works in standalone PWA (no Safari chrome).
-           - "Share" → iOS native share sheet → Messenger / Save to Photos
-           - "Download" → saves PNG (desktop) or triggers share sheet (iOS)
-           - "Close" → back to receipt
+           RECEIPT CAPTURE
+           Renders a clean isolated copy of the receipt off-screen,
+           captures it with html2canvas, then shows an in-page image
+           preview modal. No new tabs. Works in PWA standalone mode.
            ══════════════════════════════════════════════════════════ */
         async function captureReceiptPng(action, saleId, customerName) {
-            const el = document.getElementById('receiptContent');
 
-            // Show a brief loading indicator on the button that was pressed
-            const activeBtn = document.activeElement;
-            const origTxt   = activeBtn ? activeBtn.textContent : '';
-            if (activeBtn && activeBtn.classList.contains('r-btn')) {
+            // ── 1. Get current receipt HTML from the visible modal ──
+            const srcEl = document.getElementById('receiptContent');
+            if (!srcEl) { alert('Receipt not ready.'); return; }
+
+            // ── 2. Build a fully isolated off-screen render container ──
+            // This div sits outside the modal, has no inherited CSS vars,
+            // and uses only explicit inline black/white colors.
+            var renderDiv = document.createElement('div');
+            renderDiv.style.cssText = [
+                'position:fixed',
+                'left:-9999px',
+                'top:0',
+                'width:480px',
+                'background:#ffffff',
+                'color:#000000',
+                'font-family:Courier New, monospace',
+                'font-size:13px',
+                'line-height:1.6',
+                'padding:28px 24px',
+                'box-sizing:border-box',
+                'z-index:-1',
+                'pointer-events:none'
+            ].join(';');
+
+            // Deep-clone the receipt HTML and strip ALL class/color style inheritances
+            var clone = srcEl.cloneNode(true);
+            // Force every element to black text, white background
+            clone.querySelectorAll('*').forEach(function(n) {
+                // Keep explicit inline colors that are already set (black headers etc)
+                // but reset anything that might reference CSS variables
+                var s = n.getAttribute('style') || '';
+                // Remove any var(--...) references which resolve to dark-mode values
+                s = s.replace(/color\s*:\s*var\([^)]+\)/gi, 'color:#000000');
+                s = s.replace(/background[^:]*:\s*var\([^)]+\)/gi, 'background:#ffffff');
+                // Ensure table rows/cells that had no explicit color are black
+                if (n.tagName === 'TD' || n.tagName === 'TH') {
+                    if (!/color\s*:/i.test(s)) s += ';color:#000000';
+                    if (!/background/i.test(s)) s += ';background:#ffffff';
+                }
+                if (n.tagName === 'TR') {
+                    if (!/background/i.test(s)) s += ';background:#ffffff';
+                }
+                n.setAttribute('style', s);
+            });
+            // The container itself
+            clone.style.cssText = [
+                'background:#ffffff',
+                'color:#000000',
+                'max-height:none',
+                'overflow:visible',
+                'padding:0',
+                'margin:0'
+            ].join(';');
+
+            renderDiv.appendChild(clone);
+            document.body.appendChild(renderDiv);
+
+            // Show loading state
+            var activeBtn = document.activeElement;
+            var origTxt   = activeBtn ? activeBtn.textContent : '';
+            if (activeBtn && (activeBtn.classList.contains('r-btn') || activeBtn.tagName === 'BUTTON')) {
                 activeBtn.textContent = 'Generating…';
                 activeBtn.disabled    = true;
             }
 
-            // Expand the receipt element to full height before capture
-            const saved = { maxH: el.style.maxHeight, overflow: el.style.overflow };
-            el.style.maxHeight = 'none';
-            el.style.overflow  = 'visible';
-
-            let canvas;
+            // ── 3. Capture the isolated div ──
+            var canvas;
             try {
-                canvas = await html2canvas(el, {
+                canvas = await html2canvas(renderDiv, {
                     backgroundColor: '#ffffff',
                     scale: 2,
                     useCORS: true,
                     logging: false,
-                    onclone: function(doc) {
-                        // Strip dark theme so html2canvas sees white/black only
-                        doc.documentElement.removeAttribute('data-theme');
-                        var rc = doc.getElementById('receiptContent');
-                        if (rc) {
-                            rc.style.maxHeight  = 'none';
-                            rc.style.overflow   = 'visible';
-                            rc.style.background = '#ffffff';
-                            rc.style.color      = '#000000';
-                        }
-                    }
+                    removeContainer: true
                 });
             } catch(err) {
                 console.error('html2canvas error:', err);
-                el.style.maxHeight = saved.maxH;
-                el.style.overflow  = saved.overflow;
+                document.body.removeChild(renderDiv);
                 if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
-                alert('Could not capture receipt image. Please try again.');
+                alert('Could not capture receipt. Please try again.');
                 return;
             }
 
-            // Restore scroll clip
-            el.style.maxHeight = saved.maxH;
-            el.style.overflow  = saved.overflow;
+            document.body.removeChild(renderDiv);
             if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
 
             const dataUrl  = canvas.toDataURL('image/png');
@@ -737,34 +775,32 @@
                              (customerName || '').replace(/\s+/g, '_') + '.png';
             const isIOS    = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
+            // ── 4. Share / Download ──
             if (action === 'share') {
-                // Try native share sheet first (iOS + Android + some desktop)
                 canvas.toBlob(async function(blob) {
                     const file = new File([blob], filename, { type: 'image/png' });
+                    // iOS/Android native share sheet — best path
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
                             await navigator.share({ files: [file], title: 'Microfauna Receipt' });
                             return;
-                        } catch(e) {
-                            if (e.name === 'AbortError') return; // user cancelled — do nothing
-                        }
+                        } catch(e) { if (e.name === 'AbortError') return; }
                     }
-                    // Desktop: try clipboard
+                    // Desktop clipboard
                     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
                         try {
                             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                            alert('Receipt image copied to clipboard! Paste it in any chat.');
+                            alert('Receipt copied to clipboard! Paste in any chat.');
                             return;
-                        } catch(e) { /* fall through to preview modal */ }
+                        } catch(e) { /* fall through */ }
                     }
-                    // Fallback: show image preview modal so user can screenshot/long-press
+                    // Fallback: in-page image preview
                     showImagePreviewModal(dataUrl, filename, blob);
                 }, 'image/png');
 
             } else {
-                // Download action
+                // Download
                 if (!isIOS) {
-                    // Desktop: anchor download — goes straight to Downloads folder
                     var a = document.createElement('a');
                     a.download = filename;
                     a.href     = dataUrl;
@@ -772,28 +808,22 @@
                     a.click();
                     document.body.removeChild(a);
                 } else {
-                    // iOS: anchor download doesn't work for data URIs in standalone PWA
-                    // Try share sheet (user can "Save Image" → Photos gallery)
+                    // iOS: use share sheet → "Save Image" → Photos gallery
                     canvas.toBlob(async function(blob) {
                         const file = new File([blob], filename, { type: 'image/png' });
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
                             try {
                                 await navigator.share({ files: [file], title: 'Microfauna Receipt' });
                                 return;
-                            } catch(e) {
-                                if (e.name === 'AbortError') return;
-                            }
+                            } catch(e) { if (e.name === 'AbortError') return; }
                         }
-                        // Last resort: show in-page preview
                         showImagePreviewModal(dataUrl, filename, blob);
                     }, 'image/png');
                 }
             }
         }
 
-        /* Shows the captured PNG inside a full-screen in-page modal.
-           User can: long-press to Save/Copy (iOS), screenshot, or
-           tap "Share" for the native share sheet. No new tabs ever. */
+        /* In-page full-screen image preview — no new tabs, works in PWA */
         function showImagePreviewModal(dataUrl, filename, blob) {
             var existing = document.getElementById('imgPreviewModal');
             if (existing) existing.remove();
@@ -805,7 +835,7 @@
                 'background:rgba(0,0,0,0.92)',
                 'display:flex','flex-direction:column',
                 'align-items:center','justify-content:center',
-                'padding:16px','gap:14px',
+                'padding:20px','gap:14px',
                 'backdrop-filter:blur(6px)',
                 '-webkit-backdrop-filter:blur(6px)'
             ].join(';');
@@ -814,7 +844,7 @@
             img.src = dataUrl;
             img.style.cssText = [
                 'max-width:100%',
-                'max-height:calc(100vh - 140px)',
+                'max-height:calc(100vh - 160px)',
                 'border-radius:10px',
                 'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
                 'object-fit:contain'
@@ -822,40 +852,35 @@
             img.alt = 'Receipt';
 
             var hint = document.createElement('p');
-            hint.textContent = 'Long-press the image to Copy or Save to Photos';
-            hint.style.cssText = 'color:rgba(255,255,255,0.7);font-size:13px;font-family:-apple-system,sans-serif;margin:0;text-align:center;';
+            hint.textContent = 'Long-press image → Copy or Save to Photos';
+            hint.style.cssText = 'color:rgba(255,255,255,0.65);font-size:12px;font-family:-apple-system,sans-serif;margin:0;text-align:center;';
 
             var btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%;max-width:360px;';
+            btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;width:100%;max-width:320px;';
 
-            // Share button (native share sheet)
             var shareBtn = document.createElement('button');
             shareBtn.textContent = 'Share';
-            shareBtn.style.cssText = 'flex:1;min-width:80px;padding:13px 10px;background:#00cc77;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            shareBtn.style.cssText = 'flex:1;padding:13px 10px;background:#00cc77;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
             shareBtn.onclick = async function() {
-                if (blob && navigator.canShare) {
+                if (blob) {
                     var file = new File([blob], filename, { type: 'image/png' });
-                    if (navigator.canShare({ files: [file] })) {
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try { await navigator.share({ files: [file], title: 'Microfauna Receipt' }); return; }
                         catch(e) { if (e.name === 'AbortError') return; }
                     }
                 }
-                // Clipboard fallback
                 if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write && blob) {
                     try {
                         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                        alert('Copied! Paste in Messenger or any chat.');
-                    } catch(e) { alert('Share not available on this browser.'); }
+                        alert('Copied to clipboard!');
+                    } catch(e) { alert('Share is not available on this browser.'); }
                 }
             };
 
-            // Close button
             var closeBtn = document.createElement('button');
             closeBtn.textContent = 'Close';
-            closeBtn.style.cssText = 'flex:1;min-width:80px;padding:13px 10px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            closeBtn.style.cssText = 'flex:1;padding:13px 10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
             closeBtn.onclick = function() { overlay.remove(); };
-
-            // Close on backdrop tap
             overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
             btnRow.appendChild(shareBtn);
