@@ -101,13 +101,13 @@
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
-                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
-                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
-                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">⬇Download (.txt)</a>
+                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">✏️ Edit</a>
+                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">🧾 View Receipt</a>
+                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">⬇️ Download (.txt)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
-                                        <button type="submit" class="delete">Delete</button>
+                                        <button type="submit" class="delete">🗑️ Delete</button>
                                     </form>
                                 </div>
                             </div>
@@ -156,274 +156,183 @@
     <script>
         let currentSaleId = null;
         let currentCustomerName = null;
+        let _currentReceiptData = null;
 
         function fmtMoney(v) { return '₱' + parseFloat(v).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
+
+        // ── Receipt helpers ────────────────────────────────────────
         function escapeHTML(str) {
             return String(str)
-                .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-                .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+        function fmtMoney(v) {
+            return '\u20b1' + parseFloat(v).toLocaleString('en-PH',
+                {minimumFractionDigits:2, maximumFractionDigits:2});
         }
 
-        async function showReceipt(saleId) {
-            currentSaleId = saleId;
-            try {
-                const res  = await fetch(`/sales/${saleId}/receipt`);
-                const data = await res.json();
-                if (data.error) { alert('Receipt not found.'); return; }
-                currentCustomerName = data.customer_name;
-                renderReceipt(data);
-                document.getElementById('downloadPngBtn').onclick = () => captureReceiptPng('download', currentSaleId, currentCustomerName);
-                document.getElementById('copyReceiptBtn').onclick  = () => captureReceiptPng('share', currentSaleId, currentCustomerName);
-                document.getElementById('receiptModal').style.display = 'flex';
-            } catch(e) {
-                alert('Could not load receipt.');
-            }
-        }
-
-        function renderReceipt(data) {
-            let itemsHTML = '';
-            data.items.forEach(item => {
-                itemsHTML += `
-                    <tr style="background:white;">
-                        <td style="padding:8px 6px;border-bottom:1px dashed #ccc;color:black;font-size:12px;">${escapeHTML(item.name)}</td>
-                        <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:center;color:black;font-size:12px;">${item.quantity}</td>
-                        <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:right;color:black;font-size:12px;">${fmtMoney(item.price)}</td>
-                        <td style="padding:8px 6px;border-bottom:1px dashed #ccc;text-align:right;color:black;font-size:12px;font-weight:600;">${fmtMoney(item.subtotal)}</td>
-                    </tr>`;
+        // Builds a fully self-contained receipt HTML string — zero page CSS dependency.
+        function buildReceiptHTML(data) {
+            var items = '';
+            (data.items || []).forEach(function(item) {
+                items +=
+                    '<tr>' +
+                    '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;color:#000;font-size:13px;">' + escapeHTML(item.name) + '</td>' +
+                    '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:center;color:#000;font-size:13px;">' + item.quantity + '</td>' +
+                    '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:right;color:#000;font-size:13px;">' + fmtMoney(item.price) + '</td>' +
+                    '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:right;color:#000;font-size:13px;font-weight:600;">' + fmtMoney(item.subtotal) + '</td>' +
+                    '</tr>';
             });
-
-            const discountLine = data.discount > 0
-                ? `<div style="text-align:right;color:#cc0000;margin-top:5px;font-size:12px;">Discount: -${fmtMoney(data.discount)}</div>`
+            var discount = data.discount > 0
+                ? '<div style="text-align:right;color:#cc0000;font-size:13px;margin-top:4px;">Discount: -' + fmtMoney(data.discount) + '</div>'
                 : '';
-
-            // All styles are explicit inline black/white so html2canvas captures cleanly
-            document.getElementById('receiptContent').innerHTML = `
-                <div style="background:white;color:black;font-family:'Courier New',monospace;padding:0;">
-                <div style="text-align:center;margin-bottom:18px;border-bottom:2px solid black;padding-bottom:14px;">
-                    <div style="font-size:20px;font-weight:700;letter-spacing:2px;color:black;">MICROFAUNA SALES</div>
-                    <div style="font-size:12px;margin-top:4px;color:black;">Sales Receipt</div>
-                </div>
-                <div style="margin-bottom:14px;font-size:13px;color:black;line-height:1.9;">
-                    <div style="color:black;"><b style="color:black;">Receipt #:</b> ${escapeHTML(String(data.sale_id))}</div>
-                    <div style="color:black;"><b style="color:black;">Customer:</b> ${escapeHTML(data.customer_name)}</div>
-                    <div style="color:black;"><b style="color:black;">Date:</b> ${escapeHTML(data.date)}</div>
-                    ${data.notes ? `<div style="color:black;"><b style="color:black;">Notes:</b> ${escapeHTML(data.notes)}</div>` : ''}
-                </div>
-                <table style="width:100%;font-size:12px;border-collapse:collapse;background:white;color:black;">
-                    <thead>
-                        <tr style="border-bottom:2px solid black;background:black;">
-                            <th style="padding:8px 6px;text-align:left;color:white;font-size:11px;">ITEM</th>
-                            <th style="padding:8px 6px;text-align:center;color:white;font-size:11px;">QTY</th>
-                            <th style="padding:8px 6px;text-align:right;color:white;font-size:11px;">PRICE</th>
-                            <th style="padding:8px 6px;text-align:right;color:white;font-size:11px;">TOTAL</th>
-                        </tr>
-                    </thead>
-                    <tbody>${itemsHTML}</tbody>
-                </table>
-                <div style="margin-top:14px;padding-top:10px;border-top:2px solid black;background:white;">
-                    ${discountLine}
-                    <div style="text-align:right;font-size:16px;font-weight:700;color:black;margin-top:6px;">
-                        TOTAL: ${fmtMoney(data.total)}
-                    </div>
-                </div>
-                <div style="margin-top:20px;text-align:center;font-size:11px;border-top:1px dashed #ccc;padding-top:12px;color:black;">
-                    <div style="color:black;">Thank you for your purchase!</div>
-                    <div style="color:black;">Visit us again soon</div>
-                </div>
-                </div>`;
+            var notes = data.notes
+                ? '<div style="color:#000;"><b>Notes:</b> ' + escapeHTML(data.notes) + '</div>'
+                : '';
+            return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                '<style>' +
+                'html,body{margin:0;padding:0;background:#fff;color:#000;}' +
+                'body{font-family:"Courier New",Courier,monospace;font-size:13px;' +
+                'line-height:1.6;background:#fff;color:#000;padding:28px 24px;box-sizing:border-box;width:480px;}' +
+                '*{box-sizing:border-box;}' +
+                'table{width:100%;border-collapse:collapse;background:#fff;color:#000;}' +
+                'th,td{color:#000;background:#fff;}' +
+                '</style></head><body>' +
+                '<div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #000;">' +
+                '<div style="font-size:22px;font-weight:700;letter-spacing:3px;color:#000;">MICROFAUNA</div>' +
+                '<div style="font-size:12px;margin-top:4px;color:#000;letter-spacing:1px;">SALES RECEIPT</div>' +
+                '</div>' +
+                '<div style="margin-bottom:16px;font-size:13px;color:#000;line-height:2;">' +
+                '<div><b>Receipt #:</b> ' + escapeHTML(String(data.sale_id)) + '</div>' +
+                '<div><b>Customer:</b> ' + escapeHTML(data.customer_name) + '</div>' +
+                '<div><b>Date:</b> ' + escapeHTML(data.date) + '</div>' +
+                notes +
+                '</div>' +
+                '<table>' +
+                '<thead><tr style="background:#000;">' +
+                '<th style="padding:9px 8px;text-align:left;color:#fff;font-size:11px;letter-spacing:1px;background:#000;">ITEM</th>' +
+                '<th style="padding:9px 8px;text-align:center;color:#fff;font-size:11px;letter-spacing:1px;background:#000;">QTY</th>' +
+                '<th style="padding:9px 8px;text-align:right;color:#fff;font-size:11px;letter-spacing:1px;background:#000;">PRICE</th>' +
+                '<th style="padding:9px 8px;text-align:right;color:#fff;font-size:11px;letter-spacing:1px;background:#000;">TOTAL</th>' +
+                '</tr></thead>' +
+                '<tbody>' + items + '</tbody>' +
+                '</table>' +
+                '<div style="margin-top:16px;padding-top:12px;border-top:2px solid #000;">' +
+                discount +
+                '<div style="text-align:right;font-size:18px;font-weight:700;color:#000;margin-top:6px;">TOTAL: ' + fmtMoney(data.total) + '</div>' +
+                '</div>' +
+                '<div style="margin-top:22px;padding-top:14px;border-top:1px dashed #bbb;text-align:center;font-size:12px;color:#000;line-height:2;">' +
+                '<div>Thank you for your purchase!</div>' +
+                '<div>Visit us again soon</div>' +
+                '</div>' +
+                '</body></html>';
         }
 
-/* ═══════════════════════════════════════════════════════════
-           RECEIPT CAPTURE — works on iOS Safari + desktop Chrome/FF
-           iOS: navigator.share() → native share sheet → Save Image to Photos
-           Desktop: anchor.download → saves PNG directly
-           ══════════════════════════════════════════════════════════ */
-        /* ═══════════════════════════════════════════════════════════
-           RECEIPT CAPTURE
-           Renders a clean isolated copy of the receipt off-screen,
-           captures it with html2canvas, then shows an in-page image
-           preview modal. No new tabs. Works in PWA standalone mode.
-           ══════════════════════════════════════════════════════════ */
-        async function captureReceiptPng(action, saleId, customerName) {
+        // Captures receipt as PNG using a hidden iframe — fully isolated from page CSS.
+        function captureReceiptPng(action, saleId, customerName, receiptData) {
+            var filename = 'receipt_' + saleId + '_' +
+                           (customerName || '').replace(/\s+/g, '_') + '.png';
+            var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-            // ── 1. Get current receipt HTML from the visible modal ──
-            const srcEl = document.getElementById('receiptContent');
-            if (!srcEl) { alert('Receipt not ready.'); return; }
+            var iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:480px;height:1px;border:none;visibility:hidden;';
+            document.body.appendChild(iframe);
 
-            // ── 2. Build a fully isolated off-screen render container ──
-            // This div sits outside the modal, has no inherited CSS vars,
-            // and uses only explicit inline black/white colors.
-            var renderDiv = document.createElement('div');
-            renderDiv.style.cssText = [
-                'position:fixed',
-                'left:-9999px',
-                'top:0',
-                'width:480px',
-                'background:#ffffff',
-                'color:#000000',
-                'font-family:Courier New, monospace',
-                'font-size:13px',
-                'line-height:1.6',
-                'padding:28px 24px',
-                'box-sizing:border-box',
-                'z-index:-1',
-                'pointer-events:none'
-            ].join(';');
+            var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iDoc.open();
+            iDoc.write(buildReceiptHTML(receiptData));
+            iDoc.close();
 
-            // Deep-clone the receipt HTML and strip ALL class/color style inheritances
-            var clone = srcEl.cloneNode(true);
-            // Force every element to black text, white background
-            clone.querySelectorAll('*').forEach(function(n) {
-                // Keep explicit inline colors that are already set (black headers etc)
-                // but reset anything that might reference CSS variables
-                var s = n.getAttribute('style') || '';
-                // Remove any var(--...) references which resolve to dark-mode values
-                s = s.replace(/color\s*:\s*var\([^)]+\)/gi, 'color:#000000');
-                s = s.replace(/background[^:]*:\s*var\([^)]+\)/gi, 'background:#ffffff');
-                // Ensure table rows/cells that had no explicit color are black
-                if (n.tagName === 'TD' || n.tagName === 'TH') {
-                    if (!/color\s*:/i.test(s)) s += ';color:#000000';
-                    if (!/background/i.test(s)) s += ';background:#ffffff';
+            setTimeout(async function() {
+                iframe.style.height = (iDoc.body.scrollHeight + 56) + 'px';
+
+                var canvas;
+                try {
+                    canvas = await html2canvas(iDoc.body, {
+                        backgroundColor: '#ffffff',
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        windowWidth: 480,
+                        width: 480
+                    });
+                } catch(err) {
+                    console.error('html2canvas error:', err);
+                    document.body.removeChild(iframe);
+                    alert('Could not capture receipt. Please try again.');
+                    return;
                 }
-                if (n.tagName === 'TR') {
-                    if (!/background/i.test(s)) s += ';background:#ffffff';
-                }
-                n.setAttribute('style', s);
-            });
-            // The container itself
-            clone.style.cssText = [
-                'background:#ffffff',
-                'color:#000000',
-                'max-height:none',
-                'overflow:visible',
-                'padding:0',
-                'margin:0'
-            ].join(';');
+                document.body.removeChild(iframe);
 
-            renderDiv.appendChild(clone);
-            document.body.appendChild(renderDiv);
+                var dataUrl = canvas.toDataURL('image/png');
 
-            // Show loading state
-            var activeBtn = document.activeElement;
-            var origTxt   = activeBtn ? activeBtn.textContent : '';
-            if (activeBtn && (activeBtn.classList.contains('r-btn') || activeBtn.tagName === 'BUTTON')) {
-                activeBtn.textContent = 'Generating…';
-                activeBtn.disabled    = true;
-            }
-
-            // ── 3. Capture the isolated div ──
-            var canvas;
-            try {
-                canvas = await html2canvas(renderDiv, {
-                    backgroundColor: '#ffffff',
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    removeContainer: true
-                });
-            } catch(err) {
-                console.error('html2canvas error:', err);
-                document.body.removeChild(renderDiv);
-                if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
-                alert('Could not capture receipt. Please try again.');
-                return;
-            }
-
-            document.body.removeChild(renderDiv);
-            if (activeBtn) { activeBtn.textContent = origTxt; activeBtn.disabled = false; }
-
-            const dataUrl  = canvas.toDataURL('image/png');
-            const filename = 'receipt_' + saleId + '_' +
-                             (customerName || '').replace(/\s+/g, '_') + '.png';
-            const isIOS    = /iPhone|iPad|iPod/.test(navigator.userAgent);
-
-            // ── 4. Share / Download ──
-            if (action === 'share') {
-                canvas.toBlob(async function(blob) {
-                    const file = new File([blob], filename, { type: 'image/png' });
-                    // iOS/Android native share sheet — best path
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        try {
-                            await navigator.share({ files: [file], title: 'Microfauna Receipt' });
-                            return;
-                        } catch(e) { if (e.name === 'AbortError') return; }
-                    }
-                    // Desktop clipboard
-                    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-                        try {
-                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                            alert('Receipt copied to clipboard! Paste in any chat.');
-                            return;
-                        } catch(e) { /* fall through */ }
-                    }
-                    // Fallback: in-page image preview
-                    showImagePreviewModal(dataUrl, filename, blob);
-                }, 'image/png');
-
-            } else {
-                // Download
-                if (!isIOS) {
-                    var a = document.createElement('a');
-                    a.download = filename;
-                    a.href     = dataUrl;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                } else {
-                    // iOS: use share sheet → "Save Image" → Photos gallery
+                if (action === 'share') {
                     canvas.toBlob(async function(blob) {
-                        const file = new File([blob], filename, { type: 'image/png' });
+                        var file = new File([blob], filename, { type: 'image/png' });
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
                             try {
                                 await navigator.share({ files: [file], title: 'Microfauna Receipt' });
                                 return;
                             } catch(e) { if (e.name === 'AbortError') return; }
                         }
+                        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                            try {
+                                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                                alert('Receipt image copied! Paste in any chat.');
+                                return;
+                            } catch(e) { /* fall through */ }
+                        }
                         showImagePreviewModal(dataUrl, filename, blob);
                     }, 'image/png');
+
+                } else {
+                    if (!isIOS) {
+                        var a = document.createElement('a');
+                        a.download = filename;
+                        a.href = dataUrl;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    } else {
+                        canvas.toBlob(async function(blob) {
+                            var file = new File([blob], filename, { type: 'image/png' });
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                try {
+                                    await navigator.share({ files: [file], title: 'Microfauna Receipt' });
+                                    return;
+                                } catch(e) { if (e.name === 'AbortError') return; }
+                            }
+                            showImagePreviewModal(dataUrl, filename, blob);
+                        }, 'image/png');
+                    }
                 }
-            }
+            }, 150);
         }
 
-        /* In-page full-screen image preview — no new tabs, works in PWA */
         function showImagePreviewModal(dataUrl, filename, blob) {
             var existing = document.getElementById('imgPreviewModal');
             if (existing) existing.remove();
 
             var overlay = document.createElement('div');
             overlay.id = 'imgPreviewModal';
-            overlay.style.cssText = [
-                'position:fixed','inset:0','z-index:9999',
-                'background:rgba(0,0,0,0.92)',
-                'display:flex','flex-direction:column',
-                'align-items:center','justify-content:center',
-                'padding:20px','gap:14px',
-                'backdrop-filter:blur(6px)',
-                '-webkit-backdrop-filter:blur(6px)'
-            ].join(';');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
 
             var img = document.createElement('img');
             img.src = dataUrl;
-            img.style.cssText = [
-                'max-width:100%',
-                'max-height:calc(100vh - 160px)',
-                'border-radius:10px',
-                'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
-                'object-fit:contain'
-            ].join(';');
+            img.style.cssText = 'max-width:100%;max-height:calc(100vh - 160px);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.6);object-fit:contain;';
             img.alt = 'Receipt';
 
             var hint = document.createElement('p');
-            hint.textContent = 'Long-press image → Copy or Save to Photos';
-            hint.style.cssText = 'color:rgba(255,255,255,0.65);font-size:12px;font-family:-apple-system,sans-serif;margin:0;text-align:center;';
+            hint.textContent = 'Long-press image to Copy or Save to Photos';
+            hint.style.cssText = 'color:rgba(255,255,255,0.6);font-size:12px;font-family:-apple-system,sans-serif;margin:0;text-align:center;';
 
             var btnRow = document.createElement('div');
             btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;width:100%;max-width:320px;';
 
             var shareBtn = document.createElement('button');
             shareBtn.textContent = 'Share';
-            shareBtn.style.cssText = 'flex:1;padding:13px 10px;background:#00cc77;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            shareBtn.style.cssText = 'flex:1;padding:13px;background:#00cc77;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
             shareBtn.onclick = async function() {
                 if (blob) {
                     var file = new File([blob], filename, { type: 'image/png' });
@@ -436,13 +345,13 @@
                     try {
                         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
                         alert('Copied to clipboard!');
-                    } catch(e) { alert('Share is not available on this browser.'); }
+                    } catch(e) { alert('Share not available on this browser.'); }
                 }
             };
 
             var closeBtn = document.createElement('button');
             closeBtn.textContent = 'Close';
-            closeBtn.style.cssText = 'flex:1;padding:13px 10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
+            closeBtn.style.cssText = 'flex:1;padding:13px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;touch-action:manipulation;';
             closeBtn.onclick = function() { overlay.remove(); };
             overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
