@@ -101,13 +101,13 @@
                             <div class="actions-menu">
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
-                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">✏️ Edit</a>
-                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">🧾 View Receipt</a>
-                                    <a href="{{ url_for('download_receipt', sale_id=sale.id) }}">⬇️ Download (.txt)</a>
+                                    <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
+                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
+                                    <a href="#" onclick="downloadReceiptPng('{{ sale.id }}', '{{ sale.customer }}'); return false;">Download (.png)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
-                                        <button type="submit" class="delete">🗑️ Delete</button>
+                                        <button type="submit" class="delete">Delete</button>
                                     </form>
                                 </div>
                             </div>
@@ -145,9 +145,8 @@
             <div id="receiptContent" class="r-body"></div>
             <div class="r-foot">
                 <button class="r-btn dark" onclick="closeReceiptModal()">Close</button>
-                <button class="r-btn" id="downloadPngBtn">Save PNG</button>
-                <button class="r-btn" id="copyReceiptBtn">Share / Copy</button>
-
+                <button class="r-btn" onclick="window.location.href='/dashboard'">Dashboard</button>
+                <button class="r-btn" id="downloadPngBtn">PNG</button>
             </div>
         </div>
     </div>
@@ -201,7 +200,7 @@
                 '</style></head><body>' +
                 '<div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #000;">' +
                 '<div style="font-size:22px;font-weight:700;letter-spacing:3px;color:#000;">MICROFAUNA</div>' +
-                '<div style="font-size:12px;margin-top:4px;color:#000;letter-spacing:1px;">SALES RECEIPT</div>' +
+                '<div style="font-size:12px;margin-top:4px;color:#000;letter-spacing:1px;">Sales Receipt</div>' +
                 '</div>' +
                 '<div style="margin-bottom:16px;font-size:13px;color:#000;line-height:2;">' +
                 '<div><b>Receipt #:</b> ' + escapeHTML(String(data.sale_id)) + '</div>' +
@@ -363,6 +362,58 @@
             document.body.appendChild(overlay);
         }
 
+        // ── Show receipt in modal ──────────────────────────────────
+        async function showReceipt(saleId) {
+            try {
+                const res = await fetch('/sales/' + saleId + '/receipt');
+                const data = await res.json();
+                if (data.error) { alert(data.error); return; }
+                _currentReceiptData = data;
+                currentSaleId = saleId;
+                currentCustomerName = data.customer_name;
+
+                // Render receipt HTML into the modal body as an iframe so page CSS never bleeds in
+                const body = document.getElementById('receiptContent');
+                body.innerHTML = '';
+                const iframe = document.createElement('iframe');
+                iframe.style.cssText = 'width:100%;border:none;background:#fff;display:block;min-height:400px;';
+                iframe.scrolling = 'no';
+                body.appendChild(iframe);
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                doc.open();
+                doc.write(buildReceiptHTML(data));
+                doc.close();
+                // auto-size iframe height
+                setTimeout(() => {
+                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
+                }, 80);
+
+                // Wire buttons
+                document.getElementById('downloadPngBtn').onclick = function() {
+                    captureReceiptPng('download', saleId, data.customer_name, data);
+                };
+                document.getElementById('copyReceiptBtn').onclick = function() {
+                    captureReceiptPng('share', saleId, data.customer_name, data);
+                };
+
+                document.getElementById('receiptModal').style.display = 'flex';
+            } catch(e) {
+                alert('Could not load receipt: ' + e.message);
+            }
+        }
+
+        // ── Direct PNG download from dropdown ─────────────────────
+        async function downloadReceiptPng(saleId, customerName) {
+            try {
+                const res = await fetch('/sales/' + saleId + '/receipt');
+                const data = await res.json();
+                if (data.error) { alert(data.error); return; }
+                captureReceiptPng('download', saleId, customerName, data);
+            } catch(e) {
+                alert('Could not download receipt: ' + e.message);
+            }
+        }
+
         function closeReceiptModal() {
             document.getElementById('receiptModal').style.display = 'none';
         }
@@ -382,6 +433,7 @@
                 }
             }
         }
+
 
         window.onclick = function(event) {
             if (event.target === document.getElementById('receiptModal')) closeReceiptModal();
