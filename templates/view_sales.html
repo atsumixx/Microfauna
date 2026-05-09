@@ -102,8 +102,8 @@
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
                                     <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
-                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
-                                    <a href="#" onclick="downloadReceiptPng('{{ sale.id }}', '{{ sale.customer }}'); return false;">Download (.png)</a>
+                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">View Receipt</a>
+                                    <a href="#" onclick="downloadReceiptPng({{ sale.id }}, '{{ sale.customer }}'); return false;">Download (.png)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
@@ -145,7 +145,7 @@
             <div id="receiptContent" class="r-body"></div>
             <div class="r-foot">
                 <button class="r-btn dark" onclick="closeReceiptModal()">Close</button>
-                <a class="r-btn" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <button class="r-btn" onclick="location.href='{{ url_for('dashboard') }}'">Dashboard</button>
                 <button class="r-btn" id="copyReceiptBtn">Copy</button>
                 <button class="r-btn" id="downloadPngBtn">PNG</button>
             </div>
@@ -377,21 +377,37 @@
                 currentSaleId = saleId;
                 currentCustomerName = data.customer_name;
 
-                // Render receipt HTML into the modal body as an iframe so page CSS never bleeds in
+                // Render receipt into an isolated iframe — zero CSS bleed from page theme
                 const body = document.getElementById('receiptContent');
                 body.innerHTML = '';
+
+                // Wrapper div needed so transform-origin scaling collapses height correctly
+                const scaleWrap = document.createElement('div');
+                scaleWrap.style.cssText = 'width:100%;overflow:hidden;background:#fff;';
+                body.appendChild(scaleWrap);
+
                 const iframe = document.createElement('iframe');
-                iframe.style.cssText = 'width:100%;border:none;background:#fff;display:block;min-height:400px;';
+                // Keep iframe at 480px so PNG capture stays pixel-perfect; we scale visually
+                iframe.style.cssText = 'width:480px;border:none;background:#fff;display:block;transform-origin:top left;';
                 iframe.scrolling = 'no';
-                body.appendChild(iframe);
+                scaleWrap.appendChild(iframe);
+
                 const doc = iframe.contentDocument || iframe.contentWindow.document;
                 doc.open();
                 doc.write(buildReceiptHTML(data));
                 doc.close();
-                // auto-size iframe height
-                setTimeout(() => {
-                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
-                }, 80);
+
+                // Scale iframe to fit modal width on any screen size
+                function scaleIframe() {
+                    const containerWidth = body.offsetWidth || 480;
+                    const scale = Math.min(1, containerWidth / 480);
+                    iframe.style.transform = 'scale(' + scale + ')';
+                    const contentH = (doc.body && doc.body.scrollHeight) || 500;
+                    iframe.style.height = contentH + 'px';
+                    scaleWrap.style.height = Math.ceil(contentH * scale) + 'px';
+                }
+                setTimeout(scaleIframe, 60);  // after first paint
+                setTimeout(scaleIframe, 300); // after fonts settle
 
                 // Wire buttons
                 document.getElementById('downloadPngBtn').onclick = function() {

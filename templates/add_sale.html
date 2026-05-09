@@ -502,20 +502,32 @@
         const body = document.getElementById('receiptContent');
         body.innerHTML = '';
 
+        // Wrapper so transform-origin scaling collapses height correctly
+        const scaleWrap = document.createElement('div');
+        scaleWrap.style.cssText = 'width:100%;overflow:hidden;background:#fff;';
+        body.appendChild(scaleWrap);
+
         const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'width:100%;border:none;background:#fff;display:block;min-height:320px;';
+        // Keep at 480px for pixel-perfect PNG; scale visually to fit modal
+        iframe.style.cssText = 'width:480px;border:none;background:#fff;display:block;transform-origin:top left;';
         iframe.scrolling = 'no';
-        body.appendChild(iframe);
+        scaleWrap.appendChild(iframe);
 
         const doc = iframe.contentDocument || iframe.contentWindow.document;
         doc.open();
         doc.write(buildReceiptHTML(data));
         doc.close();
 
-        // Auto-size iframe after content paints
-        setTimeout(() => {
-            iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
-        }, 80);
+        function scaleIframe() {
+            const containerWidth = body.offsetWidth || 480;
+            const scale = Math.min(1, containerWidth / 480);
+            iframe.style.transform = 'scale(' + scale + ')';
+            const contentH = (doc.body && doc.body.scrollHeight) || 500;
+            iframe.style.height = contentH + 'px';
+            scaleWrap.style.height = Math.ceil(contentH * scale) + 'px';
+        }
+        setTimeout(scaleIframe, 60);
+        setTimeout(scaleIframe, 300);
 
         document.getElementById('receiptModal').style.display = 'block';
         document.getElementById('goDashBtn').onclick      = () => { window.location.href = "{{ url_for('dashboard') }}"; };
