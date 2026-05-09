@@ -749,3 +749,24 @@ html {
 .receipt-modal-wrap .r-body table td {
     border-bottom: 1px dashed #ccc !important;
 }
+
+/* ─────────────────────────────────────────────────────
+   MOBILE DROPDOWN FIX (Force visible options)
+   ───────────────────────────────────────────────────── */
+/* Tells the browser to use dark native UI elements (scrollbars, dropdowns) */
+[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+/* Forces the option items to use your theme's colors, overriding the OS */
+select option {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-weight: normal;
+}
+
+/* Optional: Fallback for specifically ensuring text is visible in light theme */
+[data-theme="light"] select option {
+    background-color: white;
+    color: black;
+}
