@@ -53,6 +53,8 @@ body {
     transition: background-color 0.25s, color 0.25s;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
+    /* Push content below the phone's status bar on notch/Dynamic Island devices */
+    padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* ── Page wrapper ──────────────────────────────────── */
@@ -60,6 +62,8 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 28px 20px 40px;
+    /* Extra top space on notch/Dynamic Island devices when there's no topbar */
+    padding-top: max(28px, calc(env(safe-area-inset-top, 0px) + 28px));
 }
 
 /* ── Logo ──────────────────────────────────────────── */
@@ -331,7 +335,10 @@ select {
 
 /* ── Mobile top bar ────────────────────────────────── */
 .topbar {
-    display: none; position: sticky; top: 0; z-index: 700;
+    display: none; position: sticky;
+    top: 0;
+    top: env(safe-area-inset-top, 0px); /* stick below status bar, not behind it */
+    z-index: 700;
     background: var(--bg-card); border-bottom: 1px solid var(--border-color);
     padding: 10px 16px; align-items: center; justify-content: space-between; gap: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -364,6 +371,9 @@ select {
     /* Show mobile UI */
     .bottom-nav { display: flex; flex-direction: column; justify-content: flex-end; }
     .topbar     { display: flex; }
+
+    /* On mobile the topbar handles the top safe area — reset container so it doesn't double-pad */
+    .container { padding-top: 14px !important; }
 
     /* Hide desktop fixed theme toggle */
     body > .theme-toggle, .theme-toggle-desktop { display: none !important; }
@@ -729,44 +739,3 @@ html {
 .r-btn:active { background: #f0f0f0; }
 .r-btn.dark   { background: black; color: white; border-color: black; }
 .r-btn.dark:active { background: #333; }
-
-/* ─────────────────────────────────────────────────────
-   RECEIPT TABLE OVERRIDES (Force Light Mode inside Receipt)
-   ───────────────────────────────────────────────────── */
-.receipt-modal-wrap .r-body table thead {
-    background: transparent !important;
-}
-
-.receipt-modal-wrap .r-body table th,
-.receipt-modal-wrap .r-body table td {
-    color: black !important;
-}
-
-.receipt-modal-wrap .r-body table th {
-    border-bottom: 2px solid black !important;
-}
-
-.receipt-modal-wrap .r-body table td {
-    border-bottom: 1px dashed #ccc !important;
-}
-
-/* ─────────────────────────────────────────────────────
-   MOBILE DROPDOWN FIX (Force visible options)
-   ───────────────────────────────────────────────────── */
-/* Tells the browser to use dark native UI elements (scrollbars, dropdowns) */
-[data-theme="dark"] {
-    color-scheme: dark;
-}
-
-/* Forces the option items to use your theme's colors, overriding the OS */
-select option {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    font-weight: normal;
-}
-
-/* Optional: Fallback for specifically ensuring text is visible in light theme */
-[data-theme="light"] select option {
-    background-color: white;
-    color: black;
-}
