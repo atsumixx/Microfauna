@@ -729,3 +729,23 @@ html {
 .r-btn:active { background: #f0f0f0; }
 .r-btn.dark   { background: black; color: white; border-color: black; }
 .r-btn.dark:active { background: #333; }
+
+/* ─────────────────────────────────────────────────────
+   RECEIPT TABLE OVERRIDES (Force Light Mode inside Receipt)
+   ───────────────────────────────────────────────────── */
+.receipt-modal-wrap .r-body table thead {
+    background: transparent !important;
+}
+
+.receipt-modal-wrap .r-body table th,
+.receipt-modal-wrap .r-body table td {
+    color: black !important;
+}
+
+.receipt-modal-wrap .r-body table th {
+    border-bottom: 2px solid black !important;
+}
+
+.receipt-modal-wrap .r-body table td {
+    border-bottom: 1px dashed #ccc !important;
+}
