@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, make_response
-import psycopg2
-import psycopg2.extras
+import psycopg2  # type: ignore
+import psycopg2.extras  # type: ignore
 from datetime import datetime
 import json
 import os
@@ -398,6 +398,32 @@ def add_sale():
                 return jsonify({'success':False,'error':'No valid items found.'}), 400
 
             total = max(0, subtotal_sum - discount)
+
+# ── Dedup check: same customer + date + total within last 10 seconds ──
+            c.execute("""
+                SELECT id FROM sales
+                WHERE customer_name = %s
+                  AND date = %s
+                  AND total = %s
+                  AND created_at >= NOW() - INTERVAL '10 seconds'
+                ORDER BY id DESC LIMIT 1
+            """, (customer, date, total))
+            existing = c.fetchone()
+            if existing:
+                # Return the existing sale as if it just succeeded — idempotent
+                sale_id = existing['id']
+                c.execute("SELECT * FROM sale_items WHERE sale_id = %s", (sale_id,))
+                existing_items = [dict(r) for r in c.fetchall()]
+                return jsonify({
+                    'success': True, 'sale_id': sale_id,
+                    'customer_name': customer, 'date': date,
+                    'notes': notes, 'discount': discount,
+                    'subtotal': subtotal_sum, 'total': total,
+                    'items': [{'name': i['item_name'], 'quantity': i['quantity'],
+                               'price': float(i['price']), 'subtotal': float(i['subtotal'])}
+                              for i in existing_items]
+                })
+
             c.execute("INSERT INTO sales (customer_name,date,total,discount,notes) VALUES (%s,%s,%s,%s,%s) RETURNING id",
                       (customer,date,total,discount,notes))
             sale_id = c.fetchone()['id']

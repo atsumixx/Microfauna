@@ -224,13 +224,18 @@
     });
 
     // ── Submit guard ─────────────────────────────────────────────
-    let saving = false;
     document.getElementById('editSaleForm').addEventListener('submit', function(e) {
-        if(!container.querySelectorAll('.item-edit-row').length) { e.preventDefault(); alert('Please add at least one item.'); return; }
-        if(saving) { e.preventDefault(); return; }
-        saving = true;
+        if (!container.querySelectorAll('.item-edit-row').length) {
+            e.preventDefault();
+            alert('Please add at least one item.');
+            return;
+        }
         const btn = document.getElementById('saveBtn');
-        btn.disabled = true; btn.textContent = 'Saving…';
+        if (btn.disabled) { e.preventDefault(); return; } // block duplicate native submits
+        btn.disabled = true;
+        btn.style.opacity = '0.65';
+        btn.textContent = 'Saving…';
+        // Native form submit proceeds — page will navigate away, no need to re-enable
     });
     </script>
 </body>

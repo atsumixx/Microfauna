@@ -368,57 +368,47 @@
         document.getElementById('totalAmount').textContent = '₱' + Math.max(0, subtotal - discount).toFixed(2);
     }
 
-    // ── Submit — state-lock + 800ms cooldown after success ───────
-    let submitting = false;
-    let lastSubmitTime = 0;
-    const SUBMIT_COOLDOWN = 800; // ms
+  // ── Reusable loading button helper ──────────────────────────
+    function withLoadingBtn(btn, asyncFn) {
+        if (btn.disabled) return;          // hard gate — second click does nothing
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.style.opacity = '0.65';
+        btn.textContent = 'Saving…';
+        return Promise.resolve()
+            .then(asyncFn)
+            .finally(() => {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                btn.textContent = original;
+            });
+    }
 
+    // ── Submit handler using the pattern ────────────────────────
     document.getElementById('saleForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-
-        // Cooldown guard — prevents double-tap from registering twice
-        const now = Date.now();
-        if (submitting || (now - lastSubmitTime) < SUBMIT_COOLDOWN) return;
 
         const inputs = document.querySelectorAll('#itemsList .qty-stepper input[type=number]');
         let hasItems = false;
         inputs.forEach(i => { if (parseInt(i.value) > 0) hasItems = true; });
         if (!hasItems) { alert('Please add at least one item.'); return; }
 
-        // Lock immediately — disable pointer-events AND disabled attr
-        submitting = true;
         const btn = document.getElementById('submitBtn');
-        btn.disabled = true;
-        btn.style.pointerEvents = 'none';
-        btn.textContent = 'Saving…';
-
-        try {
+        withLoadingBtn(btn, async () => {
             const res  = await fetch('/add-sale', { method: 'POST', body: new FormData(this) });
             const data = await res.json();
             if (data.success) {
-                lastSubmitTime = Date.now(); // stamp success time
+                // Success path: keep button locked — modal takes over from here
+                btn.disabled = true;
+                btn.style.opacity = '0.65';
+                btn.textContent = 'Saved ✓';
                 pendingSaleData = data;
                 document.getElementById('confirmDialog').style.display = 'block';
-                // Note: button stays locked — user flow moves to modal, form is done
             } else {
                 alert('Error: ' + data.error);
-                // Unlock after cooldown on error so user can retry
-                setTimeout(() => {
-                    submitting = false;
-                    btn.disabled = false;
-                    btn.style.pointerEvents = '';
-                    btn.textContent = 'Save Sale';
-                }, SUBMIT_COOLDOWN);
+                // finally() in withLoadingBtn automatically re-enables on error
             }
-        } catch(err) {
-            alert('Error: ' + err.message);
-            setTimeout(() => {
-                submitting = false;
-                btn.disabled = false;
-                btn.style.pointerEvents = '';
-                btn.textContent = 'Save Sale';
-            }, SUBMIT_COOLDOWN);
-        }
+        });
     });
 
     // ── Receipt ──────────────────────────────────────────────────
