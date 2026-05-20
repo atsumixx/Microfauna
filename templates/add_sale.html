@@ -165,7 +165,7 @@
                     <div class="qty-stepper">
                         <button type="button" onclick="changeQty(this,-1)">−</button>
                         <input type="number" name="quantity" min="0" value="0"
-                               data-price="{{ item.price }}" oninput="updateTotal()">
+                               data-price="{{ item.price }}" oninput="debouncedUpdateTotal()">
                         <button type="button" onclick="changeQty(this,1)">+</button>
                     </div>
                 </div>
@@ -337,10 +337,18 @@
     })();
 
     // ── Qty stepper ──────────────────────────────────────────────
+    let updateTotalTimeout = null;
     function changeQty(btn, delta) {
         const input = btn.parentElement.querySelector('input[type=number]');
         input.value = Math.max(0, (parseInt(input.value) || 0) + delta);
-        updateTotal();
+        // Debounce rapid updates for better responsiveness
+        if (updateTotalTimeout) clearTimeout(updateTotalTimeout);
+        updateTotalTimeout = setTimeout(updateTotal, 50);
+    }
+
+    function debouncedUpdateTotal() {
+        if (updateTotalTimeout) clearTimeout(updateTotalTimeout);
+        updateTotalTimeout = setTimeout(updateTotal, 50);
     }
 
     // ── Order summary ────────────────────────────────────────────
