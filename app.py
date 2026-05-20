@@ -618,10 +618,15 @@ def delete_item_sales(item_name):
         c.execute("DELETE FROM sale_items WHERE item_name=%s", (item_name,))
         for sid in sale_ids:
             c.execute("SELECT SUM(subtotal) as s FROM sale_items WHERE sale_id=%s", (sid,))
-            new_total = c.fetchone()['s']
-            if not new_total:
+            new_subtotal = c.fetchone()['s']
+            if not new_subtotal:
                 c.execute("DELETE FROM sales WHERE id=%s", (sid,))
             else:
+                # Get discount for this sale to calculate correct total
+                c.execute("SELECT discount FROM sales WHERE id=%s", (sid,))
+                discount_row = c.fetchone()
+                discount = float(discount_row['discount']) if discount_row else 0
+                new_total = max(0.0, new_subtotal - discount)
                 c.execute("UPDATE sales SET total=%s WHERE id=%s", (new_total, sid))
     return redirect(url_for('dashboard'))
 

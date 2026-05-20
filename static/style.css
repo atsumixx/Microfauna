@@ -582,16 +582,71 @@ html {
     gap: 10px;
     flex-shrink: 0;
 }
-/* Override: on dashboard the theme-toggle is inline, NOT fixed */
+/* Consistent fixed positioning for theme toggle across all pages */
 .dash-header .theme-toggle {
-    position: static !important;
-    box-shadow: none;
-    width: 42px;
-    height: 42px;
+    position: fixed !important;
+    top: 18px;
+    right: 20px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, transform 0.2s;
+    z-index: 1000;
+    box-shadow: var(--shadow);
+    touch-action: manipulation;
+}
+.dash-header .theme-toggle:hover {
+    border-color: var(--accent-primary);
+    transform: scale(1.07);
+}
+.dash-header .theme-toggle svg {
+    width: 21px;
+    height: 21px;
+    color: var(--text-primary);
+}
+.dash-header .theme-toggle .sun-icon  {
+    display: none;
+}
+.dash-header .theme-toggle .moon-icon {
+    display: block;
+}
+[data-theme="dark"] .dash-header .theme-toggle .sun-icon  {
+    display: block;
+}
+[data-theme="dark"] .dash-header .theme-toggle .moon-icon {
+    display: none;
 }
 .dash-header .chart-icon-btn {
-    width: 42px;
-    height: 42px;
+    position: fixed !important;
+    top: 18px;
+    right: 76px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, transform 0.2s;
+    touch-action: manipulation;
+}
+.dash-header .chart-icon-btn:hover {
+    border-color: var(--accent-primary);
+    transform: scale(1.07);
+}
+.dash-header .chart-icon-btn svg {
+    color: var(--chart-icon-color);
+}
+.dash-header .chart-icon-btn:hover svg {
+    color: var(--accent-primary);
 }
 @media (max-width: 767px) {
     .dash-header { margin-bottom: 16px; }
