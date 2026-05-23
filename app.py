@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 # CSRF protection
 csrf = CSRFProtect(app)
 
