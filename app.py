@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, jsonify, make_response, send_from_directory
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
@@ -7,12 +7,9 @@ from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
-from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-# CSRF protection
-csrf = CSRFProtect(app)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -340,6 +337,11 @@ def api_analytics_yearly():
 @app.route('/ping')
 def ping():
     return 'ok', 200
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(app.static_folder, 'logo.png', mimetype='image/png')
 
 
 # ─────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-// ── Apply theme immediately (before paint, no flash) ──────────────
+    // ── Apply theme immediately (before paint, no flash) ──────────────
 (function () {
     var t = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', t);
