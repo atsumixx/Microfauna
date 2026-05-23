@@ -7,9 +7,12 @@ from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
 app = Flask(__name__)
+# CSRF protection
+csrf = CSRFProtect(app)
 
 
 # ─────────────────────────────────────────────────────────────────

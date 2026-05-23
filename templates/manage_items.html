@@ -56,6 +56,7 @@
             </div>
             {% endif %}
             <form method="POST" action="{{ url_for('add_item') }}">
+                {{ csrf_token() }}
                 <label for="new_name">Item Name *</label>
                 <input type="text" id="new_name" name="name" required placeholder="e.g., Blue Springtail">
                 

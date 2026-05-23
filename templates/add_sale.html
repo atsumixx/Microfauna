@@ -143,6 +143,7 @@
         {% if error %}<div class="alert alert-error"><strong>Error:</strong> {{ error }}</div>{% endif %}
 
         <form method="POST" id="saleForm">
+            {{ csrf_token() }}
             <label for="customer_name">Customer Name *</label>
             <input type="text" id="customer_name" name="customer_name" required placeholder="Enter customer name">
 
