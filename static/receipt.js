@@ -12,7 +12,7 @@
     'use strict';
 
     /* ─── UPDATE THESE TWO LINES ───────────────────────────────── */
-    var GCASH_NUMBER = '0924 XXX XXXX';   // ← your registered GCash number
+    var GCASH_NUMBER = '0924 106 1576';   // ← your registered GCash number
     var GCASH_BLUE   = '#00A0E3';
     /* ─────────────────────────────────────────────────────────── */
 

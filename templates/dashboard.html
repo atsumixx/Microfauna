@@ -367,12 +367,14 @@
             <div id="receiptContent" class="r-body"></div>
             <div class="r-foot">
                 <button class="r-btn dark" onclick="closeReceiptModal()">Close</button>
+                <button class="r-btn" id="gcashToggleBtn">GCash</button>
                 <button class="r-btn" id="downloadReceiptPngBtn">Save PNG</button>
                 <button class="r-btn" id="shareReceiptBtn">Share / Copy</button>
             </div>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="/static/receipt.js"></script>
 
     <script>
         let charts = {};
@@ -792,6 +794,33 @@
             overlay.appendChild(hint);
             overlay.appendChild(btnRow);
             document.body.appendChild(overlay);
+        }
+
+        async function showReceipt(saleId) {
+            try {
+                const res  = await fetch('/sales/' + saleId + '/receipt');
+                const data = await res.json();
+                if (data.error) { alert(data.error); return; }
+
+                MFReceipt.renderInModal(document.getElementById('receiptContent'), data);
+
+                const toggleBtn = document.getElementById('gcashToggleBtn');
+                toggleBtn.textContent = MFReceipt.isGcashOn() ? 'Hide GCash' : 'Show GCash';
+                toggleBtn.onclick = () => {
+                    const isOn = MFReceipt.toggleGcash();
+                    toggleBtn.textContent = isOn ? 'Hide GCash' : 'Show GCash';
+                    MFReceipt.renderInModal(document.getElementById('receiptContent'), data);
+                };
+
+                document.getElementById('downloadReceiptPngBtn').onclick = () =>
+                    MFReceipt.captureAsPng('download', data.sale_id, data.customer_name, data);
+                document.getElementById('shareReceiptBtn').onclick = () =>
+                    MFReceipt.captureAsPng('share', data.sale_id, data.customer_name, data);
+
+                document.getElementById('receiptModal').style.display = 'flex';
+            } catch(e) {
+                alert('Could not load receipt: ' + e.message);
+            }
         }
 
         function closeReceiptModal() {

@@ -207,6 +207,7 @@
             <div id="receiptContent" class="receipt-body"></div>
             <div class="receipt-footer">
                 <button class="rbtn dark" onclick="closeReceiptModal()">Close</button>
+                <button class="rbtn" id="gcashToggleBtn">GCash</button>
                 <button class="rbtn" id="goDashBtn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     Dashboard
@@ -240,6 +241,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="/static/receipt.js"></script>
     <script>
     // ── Drag-to-reorder with persistent save ────────────────────
     (function() {
@@ -497,40 +499,20 @@
 
     // ── Render receipt into an isolated iframe (zero CSS bleed) ───
     function displayReceipt(data) {
-        const body = document.getElementById('receiptContent');
-        body.innerHTML = '';
+        MFReceipt.renderInModal(document.getElementById('receiptContent'), data);
 
-        // Wrapper so transform-origin scaling collapses height correctly
-        const scaleWrap = document.createElement('div');
-        scaleWrap.style.cssText = 'width:100%;overflow:hidden;background:#fff;';
-        body.appendChild(scaleWrap);
-
-        const iframe = document.createElement('iframe');
-        // Keep at 480px for pixel-perfect PNG; scale visually to fit modal
-        iframe.style.cssText = 'width:480px;border:none;background:#fff;display:block;transform-origin:top left;';
-        iframe.scrolling = 'no';
-        scaleWrap.appendChild(iframe);
-
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        doc.open();
-        doc.write(buildReceiptHTML(data));
-        doc.close();
-
-        function scaleIframe() {
-            const containerWidth = body.offsetWidth || 480;
-            const scale = Math.min(1, containerWidth / 480);
-            iframe.style.transform = 'scale(' + scale + ')';
-            const contentH = (doc.body && doc.body.scrollHeight) || 500;
-            iframe.style.height = contentH + 'px';
-            scaleWrap.style.height = Math.ceil(contentH * scale) + 'px';
-        }
-        setTimeout(scaleIframe, 60);
-        setTimeout(scaleIframe, 300);
+        const toggleBtn = document.getElementById('gcashToggleBtn');
+        toggleBtn.textContent = MFReceipt.isGcashOn() ? 'Hide GCash' : 'Show GCash';
+        toggleBtn.onclick = () => {
+            const isOn = MFReceipt.toggleGcash();
+            toggleBtn.textContent = isOn ? 'Hide GCash' : 'Show GCash';
+            MFReceipt.renderInModal(document.getElementById('receiptContent'), data);
+        };
 
         document.getElementById('receiptModal').style.display = 'block';
         document.getElementById('goDashBtn').onclick      = () => { window.location.href = "{{ url_for('dashboard') }}"; };
-        document.getElementById('downloadPngBtn').onclick = () => captureReceipt('download', data.sale_id, data.customer_name, data);
-        document.getElementById('copyReceiptBtn').onclick  = () => captureReceipt('copy',     data.sale_id, data.customer_name, data);
+        document.getElementById('downloadPngBtn').onclick = () => MFReceipt.captureAsPng('download', data.sale_id, data.customer_name, data);
+        document.getElementById('copyReceiptBtn').onclick = () => MFReceipt.captureAsPng('copy',     data.sale_id, data.customer_name, data);
     }
 
     // ── PNG capture via hidden iframe — page theme never touches it ──
