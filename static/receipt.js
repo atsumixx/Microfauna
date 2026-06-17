@@ -159,7 +159,7 @@
             '</div>' +
 
             '<div style="margin-bottom:16px;font-size:13px;color:#000;line-height:2;">' +
-            '<div><b>Receipt #:</b> ' + esc(String(data.sale_id)) + '</div>' +
+            '<div><b>Receipt #:</b> ' + esc(String(data.receipt_no)) + '</div>' +
             '<div><b>Customer:</b> ' + esc(data.customer_name) + '</div>' +
             '<div><b>Date:</b> ' + esc(data.date) + '</div>' +
             notesLine + '</div>' +

@@ -150,6 +150,13 @@ def init_db():
                            WHERE table_name='items' AND column_name='sort_order')
             THEN ALTER TABLE items ADD COLUMN sort_order INTEGER DEFAULT 0; END IF;
         END $$;""")
+        c.execute("""DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                           WHERE table_name='sales' AND column_name='receipt_no')
+            THEN ALTER TABLE sales ADD COLUMN receipt_no INTEGER; END IF;
+        END $$;""")
+        # Backfill receipt_no for existing sales
+        c.execute("UPDATE sales SET receipt_no = id WHERE receipt_no IS NULL")
 
         c.execute("UPDATE items SET sort_order=id WHERE sort_order=0")
 
@@ -194,6 +201,7 @@ def get_sale_data(sale_id):
     subtotal_sum = sum(float(i['subtotal']) for i in items)
     return {
         'sale_id':       sale['id'],
+        'receipt_no':    sale['receipt_no'],
         'customer_name': sale['customer_name'],
         'date':          str(sale['date'])[:10],
         'notes':         sale['notes'] or '',
@@ -382,7 +390,7 @@ def download_receipt(sale_id):
     if not data:
         return "Sale not found", 404
     lines = ["="*40, "       MICROFAUNA SALES RECEIPT", "="*40,
-             f"Receipt #: {data['sale_id']}", f"Customer : {data['customer_name']}",
+             f"Receipt #: {data['receipt_no']}", f"Customer : {data['customer_name']}",
              f"Date     : {data['date']}"]
     if data['notes']:
         lines.append(f"Notes    : {data['notes']}")
@@ -467,10 +475,13 @@ def add_sale():
                                   for i in existing_items]
                     })
 
-                # Insert sale
+                # Insert sale with receipt_no
+                c.execute("SELECT COALESCE(MAX(receipt_no), 0) + 1 AS next_no FROM sales")
+                next_receipt_no = c.fetchone()['next_no']
+
                 c.execute(
-                    "INSERT INTO sales (customer_name,date,total,discount,notes) VALUES (%s,%s,%s,%s,%s) RETURNING id",
-                    (customer, date, total, discount, notes)
+                    "INSERT INTO sales (customer_name,date,total,discount,notes,receipt_no) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+                    (customer, date, total, discount, notes, next_receipt_no)
                 )
                 sale_id = c.fetchone()['id']
 
@@ -502,7 +513,7 @@ def view_sales():
     search = request.args.get('search', '')
     with db_read() as conn:
         c = conn.cursor()
-        c.execute("""SELECT id,customer_name,date,total,notes
+        c.execute("""SELECT id,customer_name,date,total,notes,receipt_no
                      FROM sales WHERE customer_name ILIKE %s
                      ORDER BY date DESC,id DESC""", (f'%{search}%',))
         sales_rows = c.fetchall()
@@ -521,12 +532,13 @@ def view_sales():
 
     expanded = [
         {
-            'id':       sale['id'],
-            'customer': sale['customer_name'],
-            'date':     str(sale['date'])[:10],
-            'total':    sale['total'],
-            'notes':    sale['notes'],
-            'items':    items_by_sale.get(sale['id'], []),
+            'id':         sale['id'],          # keep for URLs/actions
+            'receipt_no': sale['receipt_no'],  # add this
+            'customer':   sale['customer_name'],
+            'date':       str(sale['date'])[:10],
+            'total':      sale['total'],
+            'notes':      sale['notes'],
+            'items':      items_by_sale.get(sale['id'], []),
         }
         for sale in sales_rows
     ]
