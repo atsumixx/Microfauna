@@ -2,35 +2,37 @@
  * MICROFAUNA — receipt.js
  * Centralised receipt HTML builder + GCash QR toggle.
  *
- * SETUP (two steps):
- *   1. Copy your GCash QR image to  static/gcash-qr.png
- *   2. Replace GCASH_NUMBER below with your registered mobile number.
+ * SETUP (one step):
+ *   Replace GCASH_NUMBER below with your registered mobile number.
+ *   The QR code is generated automatically — no image upload needed.
  *
  * Exposes: window.MFReceipt
  */
 (function (global) {
     'use strict';
 
-    /* ─── UPDATE THESE TWO LINES ───────────────────────────────── */
+    /* ─── UPDATE THIS LINE ─────────────────────────────────────── */
     var GCASH_NUMBER = '0924 106 1576';   // ← your registered GCash number
-    var GCASH_BLUE   = '#00A0E3';
     /* ─────────────────────────────────────────────────────────── */
 
-    var _qr = null;                                            // base64 data URL, set after load
-    var _on = localStorage.getItem('mf_gcash') !== 'false';   // default: GCash ON
+    var GCASH_BLUE = '#007AE2';
 
-    /* Pre-load the QR image as base64 so it embeds cleanly in the isolated
-       receipt iframe — same-origin fetch, no CORS issues, works offline. */
-    fetch('/static/gcash-qr.png')
-        .then(function (r) { return r.blob(); })
-        .then(function (blob) {
-            var rd = new FileReader();
-            rd.onloadend = function () { _qr = rd.result; };
-            rd.readAsDataURL(blob);
-        })
-        .catch(function () {
-            /* gcash-qr.png not present yet — GCash block still renders, image slot is empty */
-        });
+    // GCash toggle state — default ON
+    var _on = localStorage.getItem('mf_gcash') !== 'false';
+
+    // Build the QR image URL dynamically from GCASH_NUMBER (no static file needed)
+    function _qrUrl() {
+        var digits = GCASH_NUMBER.replace(/\s+/g, '');
+        return (
+            'https://api.qrserver.com/v1/create-qr-code/' +
+            '?size=160x160' +
+            '&data=' + encodeURIComponent(digits) +
+            '&bgcolor=ffffff' +
+            '&color=000000' +
+            '&margin=6' +
+            '&format=png'
+        );
+    }
 
 
     /* ── Utilities ───────────────────────────────────────────────── */
@@ -49,15 +51,15 @@
         (data.items || []).forEach(function (item) {
             rows +=
                 '<tr>' +
-                '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;color:#000;font-size:13px;">' + esc(item.name) + '</td>' +
-                '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:center;color:#000;font-size:13px;">' + item.quantity + '</td>' +
-                '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:right;color:#000;font-size:13px;">&#8369;' + parseFloat(item.price).toFixed(2) + '</td>' +
-                '<td style="padding:9px 8px;border-bottom:1px dashed #bbb;text-align:right;color:#000;font-size:13px;font-weight:600;">&#8369;' + parseFloat(item.subtotal).toFixed(2) + '</td>' +
+                '<td style="padding:9px 8px;border-bottom:1px dashed #ccc;color:#000;font-size:13px;">' + esc(item.name) + '</td>' +
+                '<td style="padding:9px 8px;border-bottom:1px dashed #ccc;text-align:center;color:#000;font-size:13px;">' + item.quantity + '</td>' +
+                '<td style="padding:9px 8px;border-bottom:1px dashed #ccc;text-align:right;color:#000;font-size:13px;">&#8369;' + parseFloat(item.price).toFixed(2) + '</td>' +
+                '<td style="padding:9px 8px;border-bottom:1px dashed #ccc;text-align:right;color:#000;font-size:13px;font-weight:600;">&#8369;' + parseFloat(item.subtotal).toFixed(2) + '</td>' +
                 '</tr>';
         });
 
         var discountLine = (data.discount > 0)
-            ? '<div style="text-align:right;color:#cc0000;font-size:13px;margin-top:4px;">Discount: -&#8369;' +
+            ? '<div style="text-align:right;color:#cc0000;font-size:13px;margin-top:6px;">Discount: -&#8369;' +
               parseFloat(data.discount).toFixed(2) + '</div>'
             : '';
 
@@ -65,26 +67,76 @@
             ? '<div style="color:#000;"><b>Notes:</b> ' + esc(data.notes) + '</div>'
             : '';
 
-        /* ── GCash payment block (only when _on === true) ─────────── */
+        /* ── GCash payment block ─────────────────────────────────── */
         var gcashBlock = '';
         if (_on) {
-            var qrImg = _qr
-                ? '<img src="' + _qr + '" width="150" height="150" ' +
-                  'style="display:block;margin:0 auto 10px;object-fit:contain;" alt="GCash QR">'
-                : '<div style="height:8px;"></div>';   /* spacer if image not loaded yet */
-
             gcashBlock =
-                '<div style="margin:18px 0 10px;padding:14px 16px;' +
-                'border:2px dashed ' + GCASH_BLUE + ';border-radius:8px;text-align:center;background:#fff;">' +
-                  '<div style="color:' + GCASH_BLUE + ';font-weight:700;font-size:11px;letter-spacing:2px;' +
-                  'margin-bottom:10px;font-family:\'Courier New\',monospace;">\u2500\u2500 PAYMENT \u2500\u2500</div>' +
-                  '<div style="color:' + GCASH_BLUE + ';font-size:12px;font-weight:700;margin-bottom:10px;' +
-                  'font-family:\'Courier New\',monospace;">Pay via GCash</div>' +
-                  qrImg +
-                  '<div style="font-size:14px;font-weight:700;color:#000;letter-spacing:1px;' +
-                  'font-family:\'Courier New\',monospace;">' + esc(GCASH_NUMBER) + '</div>' +
-                  '<div style="font-size:11px;color:#555;margin-top:4px;font-family:\'Courier New\',monospace;">' +
-                  'Scan to pay \u00b7 GCash</div>' +
+                '<div style="' +
+                    'margin:20px 0 14px;' +
+                    'padding:16px 12px 18px;' +
+                    'border:2px dashed ' + GCASH_BLUE + ';' +
+                    'border-radius:10px;' +
+                    'text-align:center;' +
+                    'background:#fff;' +
+                    'box-sizing:border-box;' +
+                '">' +
+                    /* Header label */
+                    '<div style="' +
+                        'color:' + GCASH_BLUE + ';' +
+                        'font-weight:700;' +
+                        'font-size:10px;' +
+                        'letter-spacing:3px;' +
+                        'margin-bottom:10px;' +
+                        'font-family:\'Courier New\',monospace;' +
+                    '">\u2500\u2500 PAYMENT \u2500\u2500</div>' +
+
+                    /* "Pay via GCash" */
+                    '<div style="' +
+                        'color:' + GCASH_BLUE + ';' +
+                        'font-size:13px;' +
+                        'font-weight:700;' +
+                        'margin-bottom:14px;' +
+                        'font-family:\'Courier New\',monospace;' +
+                        'letter-spacing:0.5px;' +
+                    '">Pay via GCash</div>' +
+
+                    /* QR image — generated from GCASH_NUMBER */
+                    '<div style="' +
+                        'width:164px;' +
+                        'height:164px;' +
+                        'margin:0 auto 14px;' +
+                        'border:3px solid ' + GCASH_BLUE + ';' +
+                        'border-radius:8px;' +
+                        'overflow:hidden;' +
+                        'background:#fff;' +
+                        'display:flex;' +
+                        'align-items:center;' +
+                        'justify-content:center;' +
+                    '">' +
+                        '<img src="' + _qrUrl() + '" ' +
+                             'width="160" height="160" ' +
+                             'style="display:block;object-fit:contain;" ' +
+                             'alt="GCash QR" crossorigin="anonymous">' +
+                    '</div>' +
+
+                    /* Phone number */
+                    '<div style="' +
+                        'font-size:15px;' +
+                        'font-weight:700;' +
+                        'color:#000;' +
+                        'letter-spacing:2px;' +
+                        'font-family:\'Courier New\',monospace;' +
+                        'margin-bottom:6px;' +
+                    '">' + esc(GCASH_NUMBER) + '</div>' +
+
+                    /* Sub-label */
+                    '<div style="' +
+                        'font-size:11px;' +
+                        'color:#555;' +
+                        'font-family:\'Courier New\',monospace;' +
+                        'letter-spacing:0.5px;' +
+                    '">Scan to pay \u00b7 GCash</div>' +
+
                 '</div>';
         }
 
@@ -104,7 +156,7 @@
             /* ─ Header ─ */
             '<div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #000;">' +
             '<div style="font-size:22px;font-weight:700;letter-spacing:3px;color:#000;">MICROFAUNA</div>' +
-            '<div style="font-size:12px;margin-top:4px;color:#000;letter-spacing:1px;">Sales Receipt</div>' +
+            '<div style="font-size:12px;margin-top:4px;color:#555;letter-spacing:1px;">Sales Receipt</div>' +
             '</div>' +
 
             /* ─ Meta ─ */
@@ -133,8 +185,8 @@
             gcashBlock +
 
             /* ─ Thank-you footer ─ */
-            '<div style="margin-top:' + (_on ? '0' : '22px') + ';padding-top:14px;' +
-            'border-top:1px dashed #bbb;text-align:center;font-size:12px;color:#000;line-height:2;">' +
+            '<div style="margin-top:' + (_on ? '4px' : '22px') + ';padding-top:14px;' +
+            'border-top:1px dashed #ccc;text-align:center;font-size:12px;color:#000;line-height:2;">' +
             '<div>Thank you for your purchase!</div><div>Visit us again soon</div>' +
             '</div>' +
             '</body></html>'
@@ -169,6 +221,11 @@
         }
         setTimeout(doScale, 60);
         setTimeout(doScale, 300);
+        // Re-scale once QR image finishes loading (it shifts the layout)
+        var qrImg = doc.querySelector && doc.querySelector('img[alt="GCash QR"]');
+        if (qrImg) {
+            qrImg.onload = function () { setTimeout(doScale, 50); };
+        }
     }
 
 
@@ -187,13 +244,17 @@
         var iDoc = iframe.contentDocument || iframe.contentWindow.document;
         iDoc.open(); iDoc.write(buildHTML(data)); iDoc.close();
 
+        // Wait long enough for the QR image to load before capturing
+        var waitMs = _on ? 1200 : 150;
+
         setTimeout(async function () {
             iframe.style.height = (iDoc.body.scrollHeight + 56) + 'px';
             var canvas;
             try {
                 canvas = await html2canvas(iDoc.body, {
                     backgroundColor: '#ffffff', scale: 2,
-                    useCORS: true, logging: false, windowWidth: 480, width: 480
+                    useCORS: true, allowTaint: false,
+                    logging: false, windowWidth: 480, width: 480
                 });
             } catch (err) {
                 document.body.removeChild(iframe);
@@ -239,7 +300,7 @@
                     }, 'image/png');
                 }
             }
-        }, 150);
+        }, waitMs);
     }
 
 
