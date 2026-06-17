@@ -62,7 +62,7 @@
 
         {% if request.args.get('saved') %}
         <div class="alert" style="background:rgba(0,204,119,0.1);border:1px solid var(--accent-primary);color:var(--accent-primary);margin-bottom:16px;">
-            ✅ Sale saved successfully.
+            Sale saved successfully.
         </div>
         {% endif %}
 
@@ -102,8 +102,8 @@
                                 <button class="actions-btn" onclick="toggleDropdown('{{ sale.id }}')">⋮</button>
                                 <div id="dropdown-{{ sale.id }}" class="dropdown-content">
                                     <a href="{{ url_for('edit_sale', sale_id=sale.id) }}">Edit</a>
-                                    <a href="#" onclick="showReceipt({{ sale.id }}); return false;">View Receipt</a>
-                                    <a href="#" onclick="downloadReceiptPng({{ sale.id }}, '{{ sale.customer }}'); return false;">Download (.png)</a>
+                                    <a href="#" onclick="showReceipt('{{ sale.id }}'); return false;">View Receipt</a>
+                                    <a href="#" onclick="downloadReceiptPng('{{ sale.id }}', '{{ sale.customer }}'); return false;">Download (.png)</a>
                                     <form method="POST"
                                           action="{{ url_for('delete_sale', sale_id=sale.id) }}"
                                           onsubmit="return confirm('Delete this sale?');">
