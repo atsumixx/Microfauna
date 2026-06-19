@@ -49,6 +49,17 @@
                 <span class="logo-text">Microfauna Sales</span>
             </a>
             <div class="dash-header-actions">
+                <button class="privacy-toggle" id="statsToggleBtn" onclick="toggleStatsVisibility()" title="Hide/Show amounts" aria-label="Hide or show amounts">
+                    <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg class="eye-off-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                        <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                    </svg>
+                </button>
                 <button class="chart-icon-btn" onclick="openChartModal()" title="View Analytics" aria-label="View Analytics">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                         <path d="M3 3V21H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -82,28 +93,58 @@
         <div class="card-grid">
             <div class="stat-card">
                 <h2>Total Revenue</h2>
-                <p class="value">{{ revenue | money }}</p>
+                <p class="value" id="statRevenue">{{ revenue | money }}</p>
             </div>
             <div class="stat-card">
                 <h2>Total Expenses</h2>
-                <p class="value" style="color: var(--accent-danger);">{{ expenses | money }}</p>
+                <p class="value" id="statExpenses" style="color: var(--accent-danger);">{{ expenses | money }}</p>
             </div>
             {% if net_profit >= 0 %}
             <div class="stat-card net-profit-positive">
                 <h2>Net Profit</h2>
-                <p class="value">{{ net_profit | money }}</p>
+                <p class="value" id="statNetProfit">{{ net_profit | money }}</p>
             </div>
             {% else %}
             <div class="stat-card net-profit-negative">
                 <h2>Net Profit</h2>
-                <p class="value">{{ net_profit | money }}</p>
+                <p class="value" id="statNetProfit">{{ net_profit | money }}</p>
             </div>
             {% endif %}
             <div class="stat-card">
                 <h2>Total Transactions</h2>
-                <p class="value">{{ transactions }}</p>
+                <p class="value" id="statTransactions">{{ transactions }}</p>
             </div>
         </div>
+        <script>
+(function() {
+    var STAT_IDS = ['statRevenue','statExpenses','statNetProfit','statTransactions'];
+
+    function applyStatsVisibility(hidden) {
+        STAT_IDS.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (hidden) {
+                if (!el.dataset.original) el.dataset.original = el.textContent;
+                el.textContent = '••••••';
+            } else if (el.dataset.original) {
+                el.textContent = el.dataset.original;
+            }
+        });
+        var btn = document.getElementById('statsToggleBtn');
+        if (btn) btn.classList.toggle('stats-hidden', hidden);
+    }
+
+    window.toggleStatsVisibility = function() {
+        var hidden = localStorage.getItem('mf_hide_stats') === 'true';
+        var next = !hidden;
+        localStorage.setItem('mf_hide_stats', next ? 'true' : 'false');
+        applyStatsVisibility(next);
+    };
+
+    // Apply saved state immediately on page load
+    applyStatsVisibility(localStorage.getItem('mf_hide_stats') === 'true');
+})();
+</script>
 
         <!-- Actions -->
         <div class="actions">
