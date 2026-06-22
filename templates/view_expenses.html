@@ -84,7 +84,7 @@
                         {% for expense in expenses %}
                             <tr>
                                 <td>#{{ expense.id }}</td>
-                                <td>{{ expense.date }}</td>
+                                <td>{{ expense.date | short_date }}</td>
                                 <td>
                                     {{ expense.description }}
                                     {% if expense.notes %}
