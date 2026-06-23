@@ -454,7 +454,7 @@ def add_sale():
 
                 # Dedup check: same customer + date + total within last 10 seconds
                 c.execute("""
-                    SELECT id FROM sales
+                    SELECT id, receipt_no FROM sales
                     WHERE customer_name=%s AND date=%s AND total=%s
                       AND created_at >= NOW() - INTERVAL '10 seconds'
                     ORDER BY id DESC LIMIT 1
@@ -467,6 +467,7 @@ def add_sale():
                     # autocommit not used here — need to commit to release lock
                     return jsonify({
                         'success': True, 'sale_id': sale_id,
+                        'receipt_no': existing['receipt_no'],
                         'customer_name': customer, 'date': date,
                         'notes': notes, 'discount': discount,
                         'subtotal': subtotal_sum, 'total': total,
@@ -495,6 +496,7 @@ def add_sale():
 
             return jsonify({
                 'success': True, 'sale_id': sale_id,
+                'receipt_no': next_receipt_no,
                 'customer_name': customer, 'date': date,
                 'notes': notes, 'discount': discount,
                 'subtotal': subtotal_sum, 'total': total,
