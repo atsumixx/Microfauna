@@ -238,9 +238,22 @@ select {
 }
 .modal-header h2 { margin: 0; font-size: 1.1rem; }
 .close {
-    color: var(--text-secondary); font-size: 1.6rem; font-weight: bold;
-    cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 6px;
-    transition: color 0.2s, background 0.2s; border: none; background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    color: var(--text-secondary);
+    font-size: 1.6rem;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    border-radius: 8px;
+    transition: color 0.2s, background 0.2s;
+    border: none;
+    background: none;
+    touch-action: manipulation;
+    flex-shrink: 0;
 }
 .close:hover { color: var(--accent-danger); background: rgba(255,68,68,0.08); }
 .modal-body { padding: 22px; overflow-y: auto; flex: 1; }
@@ -668,13 +681,26 @@ html {
 .dash-header .chart-icon-btn:hover svg {
     color: var(--accent-primary);
 }
+.dash-header .privacy-toggle {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top, 0px) + 18px);
+    right: 132px;
+    z-index: 1000;
+}
 @media (max-width: 767px) {
     .dash-header { margin-bottom: 16px; }
     .dash-header .logo-text { font-size: 1rem !important; }
     .dash-header .logo img  { width: 38px !important; height: 38px !important; border-radius: 10px; }
     .dash-header .theme-toggle,
-    .dash-header .chart-icon-btn { width: 38px; height: 38px; }
+    .dash-header .chart-icon-btn,
+    .dash-header .privacy-toggle { width: 38px; height: 38px; }
+    .dash-header .theme-toggle   { right: 12px; }
+    .dash-header .chart-icon-btn { right: 58px; }
+    .dash-header .privacy-toggle { right: 104px; }
     .dash-header-actions { gap: 8px; }
+    #chartModal .modal-header {
+        padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    }
 }
 
 /* ─────────────────────────────────────────────────────
