@@ -603,7 +603,7 @@ html {
 /* Consistent fixed positioning for theme toggle across all pages */
 .dash-header .theme-toggle {
     position: fixed !important;
-    top: 18px;
+    top: calc(env(safe-area-inset-top, 0px) + 18px);
     right: 20px;
     background: var(--bg-card);
     border: 1.5px solid var(--border-color);
@@ -642,7 +642,7 @@ html {
 }
 .dash-header .chart-icon-btn {
     position: fixed !important;
-    top: 18px;
+    top: calc(env(safe-area-inset-top, 0px) + 18px);
     right: 76px;
     background: var(--bg-card);
     border: 1.5px solid var(--border-color);
@@ -655,6 +655,8 @@ html {
     justify-content: center;
     transition: border-color 0.2s, transform 0.2s;
     touch-action: manipulation;
+    z-index: 1000;
+    box-shadow: var(--shadow);
 }
 .dash-header .chart-icon-btn:hover {
     border-color: var(--accent-primary);
