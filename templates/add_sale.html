@@ -255,7 +255,12 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids })
-            });
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) console.error('Reorder failed to save:', data.error);
+            })
+            .catch(err => console.error('Reorder request failed:', err));
         }
 
         // Desktop

@@ -361,16 +361,18 @@ def reorder_items():
         ids = request.get_json().get('ids', [])
         if not ids:
             return jsonify({'success': False}), 400
+        ids = [int(i) for i in ids]  # dataset.id from JS is a string — must cast for the integer PK
         with db() as conn:
             c = conn.cursor()
-            # Single query with VALUES list — one round-trip
             psycopg2.extras.execute_values(
                 c,
                 "UPDATE items SET sort_order=data.ord FROM (VALUES %s) AS data(id, ord) WHERE items.id=data.id",
-                [(item_id, idx) for idx, item_id in enumerate(ids)]
+                [(item_id, idx) for idx, item_id in enumerate(ids)],
+                template="(%s::integer, %s::integer)"
             )
         return jsonify({'success': True})
     except Exception as e:
+        print(f"Error reordering items: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
