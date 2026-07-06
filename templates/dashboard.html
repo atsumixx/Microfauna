@@ -425,10 +425,12 @@
         // ── Chart Modal ──────────────────────────────
         function openChartModal() {
             document.getElementById('chartModal').style.display = 'block';
+            document.body.classList.add('modal-open');
             loadAllCharts();
         }
         function closeChartModal() {
             document.getElementById('chartModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
 
         function showChart(chartType, btn) {
@@ -628,9 +630,11 @@
             document.getElementById('edit_item_price').value = price.toFixed(2);
             document.getElementById('editItemForm').action   = `/items/edit/${id}`;
             document.getElementById('editItemModal').style.display = 'block';
+            document.body.classList.add('modal-open');
         }
         function closeEditItemModal() {
             document.getElementById('editItemModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
 
         // ── Receipt ───────────────────────────────────
@@ -859,6 +863,7 @@
                     MFReceipt.captureAsPng('share', data.sale_id, data.customer_name, data);
 
                 document.getElementById('receiptModal').style.display = 'flex';
+                document.body.classList.add('modal-open');
             } catch(e) {
                 alert('Could not load receipt: ' + e.message);
             }
@@ -867,6 +872,7 @@
         function closeReceiptModal() {
             var m = document.getElementById('receiptModal');
             if (m) m.style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
 
         // ── Dropdowns ─────────────────────────────────

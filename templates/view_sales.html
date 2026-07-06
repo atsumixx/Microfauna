@@ -393,6 +393,7 @@
                     MFReceipt.captureAsPng('share', saleId, data.customer_name, data);
 
                 document.getElementById('receiptModal').style.display = 'flex';
+                document.body.classList.add('modal-open');
             } catch(e) {
                 alert('Could not load receipt: ' + e.message);
             }
@@ -412,6 +413,7 @@
 
         function closeReceiptModal() {
             document.getElementById('receiptModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
 
         function toggleDropdown(id) {

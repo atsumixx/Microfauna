@@ -701,7 +701,14 @@ html {
     #chartModal .modal-header {
         padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
     }
-}
+    /* Fix: fixed theme/chart/privacy toggle buttons sit on top of the
+       modal's × close button on mobile and steal the tap. Hide them
+       while any modal is open. */
+    body.modal-open .dash-header .theme-toggle,
+    body.modal-open .dash-header .chart-icon-btn,
+    body.modal-open .dash-header .privacy-toggle {
+        display: none !important;
+    }
 
 /* ─────────────────────────────────────────────────────
    LOADING SCREEN
